@@ -1,0 +1,33 @@
+# Cloudflare Pages configuration for Gifted Grads Events.
+#
+# Usage:
+#   - Local dev:        npx wrangler pages dev -- npm run dev
+#   - Apply migrations: npx wrangler d1 migrations apply DB --local   (local)
+#                       npx wrangler d1 migrations apply DB --remote  (production)
+#   - Set secrets:      npx wrangler pages secret put MANAGER_PASSWORD
+#                       npx wrangler pages secret put RESEND_API_KEY
+#
+# The `DB` D1 binding and the `RESEND_FROM` / `ORGANIZER_EMAIL` plain vars
+# can also be configured from the Cloudflare dashboard; this file is the
+# source of truth for local development via `wrangler pages dev`.
+
+name = "gifted-grads-events"
+compatibility_date = "2025-01-01"
+compatibility_flags = ["nodejs_compat"]
+pages_build_output_dir = "dist"
+
+# Plain vars (NOT secrets — these are committed)
+[vars]
+RESEND_FROM = "Gifted Grads <noreply@aainsurances.com>"
+ORGANIZER_EMAIL = "info@aainsurances.com"
+
+# CSV of Jotform Form IDs accepted by the webhook (insurance form).
+JOTFORM_ALLOWED_FORM_IDS = "261465857224059"
+
+# D1 binding. Replace `database_id` with the id printed by:
+#   npx wrangler d1 create gifted-grads
+[[d1_databases]]
+binding = "DB"
+database_name = "gifted-grads"
+database_id = "REPLACE_WITH_YOUR_D1_DATABASE_ID"
+migrations_dir = "migrations"

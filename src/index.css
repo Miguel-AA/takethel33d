@@ -1,0 +1,81 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html,
+  body,
+  #root {
+    height: 100%;
+  }
+  body {
+    @apply bg-slate-50 text-slate-800 antialiased font-sans;
+    background-image:
+      radial-gradient(circle at 90% -10%, rgba(245, 197, 24, 0.08) 0, transparent 45%),
+      radial-gradient(circle at -10% 100%, rgba(91, 155, 213, 0.08) 0, transparent 45%);
+    background-attachment: fixed;
+  }
+}
+
+@layer components {
+  /* Buttons */
+  .btn {
+    @apply inline-flex items-center justify-center gap-2 rounded-xl px-5 py-2.5 text-sm font-semibold transition disabled:cursor-not-allowed disabled:opacity-60;
+  }
+  .btn-primary {
+    @apply btn bg-accent-500 text-white shadow-sm hover:bg-accent-600 focus:outline-none focus:ring-2 focus:ring-accent-300;
+  }
+  .btn-secondary {
+    @apply btn bg-white text-brand-700 border border-brand-200 hover:bg-brand-50 focus:outline-none focus:ring-2 focus:ring-brand-200;
+  }
+  .btn-ghost {
+    @apply btn text-slate-600 hover:bg-slate-100;
+  }
+
+  /* Forms */
+  .input {
+    @apply block w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-sm placeholder:text-slate-400 focus:border-brand-400 focus:outline-none focus:ring-2 focus:ring-brand-100;
+  }
+  .label {
+    @apply block text-sm font-semibold text-slate-700 mb-1.5;
+  }
+
+  /* Cards */
+  .card {
+    @apply rounded-2xl bg-white border border-slate-100 shadow-card;
+  }
+  .card-lg {
+    @apply rounded-2xl bg-white border border-slate-100 shadow-cardLg;
+  }
+
+  /* Decorative yellow underline that sits under a heading */
+  .accent-underline {
+    @apply relative inline-block;
+  }
+  .accent-underline::after {
+    content: '';
+    @apply absolute left-1 right-1 -bottom-1 h-2 bg-no-repeat bg-contain;
+    background-image: theme('backgroundImage.underline-accent');
+  }
+
+  /* Nav link */
+  .nav-link {
+    @apply text-sm font-medium text-slate-600 hover:text-slate-900 transition;
+  }
+  .nav-link-active {
+    @apply text-brand-700 relative;
+  }
+  .nav-link-active::after {
+    content: '';
+    @apply absolute left-0 right-0 -bottom-1.5 h-0.5 bg-brand-500 rounded-full;
+  }
+}
+
+/* Subtle floating sparkles around the participant number */
+@keyframes floatSpark {
+  0%, 100% { transform: translateY(0) scale(1); opacity: 0.85; }
+  50% { transform: translateY(-3px) scale(1.08); opacity: 1; }
+}
+.spark {
+  animation: floatSpark 2.4s ease-in-out infinite;
+}
