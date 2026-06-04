@@ -41,10 +41,10 @@ export function ManagerLoginPage() {
   return (
     <div className="mx-auto max-w-md px-4 py-14 sm:px-6">
       <div className="card-lg p-7">
-        <h1 className="text-2xl font-bold tracking-tight text-slate-900">
+        <h1 className="text-2xl font-bold tracking-tight text-white">
           <span className="accent-underline">{t('login.title')}</span>
         </h1>
-        <p className="mt-2 text-sm text-slate-600">{t('login.subtitle')}</p>
+        <p className="mt-2 text-sm text-slate-300">{t('login.subtitle')}</p>
 
         <form className="mt-5 space-y-4" onSubmit={onSubmit}>
           {errorMessage && <ErrorBanner message={errorMessage} />}

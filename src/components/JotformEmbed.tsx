@@ -85,8 +85,8 @@ export function JotformEmbed() {
 
   const title =
     locale === 'en'
-      ? 'Gifted Grads Insurance Information Form'
-      : 'Solicitud de información de seguro — Gifted Grads';
+      ? 'Take the L33d Premium Lead Form'
+      : 'Formulario premium de leads - Take the L33d';
 
   return <JotformIframe formId={formId} title={title} />;
 }
@@ -118,9 +118,9 @@ function JotformIframe({ formId, title }: { formId: string; title: string }) {
   }, [formId]);
 
   return (
-    <div className="relative overflow-hidden rounded-2xl border border-slate-200 bg-white">
+    <div className="relative overflow-hidden rounded-lg border border-white/10 bg-black/30 backdrop-blur-xl">
       {status === 'loading' && (
-        <div className="pointer-events-none absolute inset-x-0 top-0 z-10 flex items-center justify-center gap-2 bg-white/90 py-3 text-xs text-slate-500">
+        <div className="pointer-events-none absolute inset-x-0 top-0 z-10 flex items-center justify-center gap-2 bg-black/80 py-3 text-xs text-slate-300 backdrop-blur-xl">
           <Spinner /> <span>Cargando formulario...</span>
         </div>
       )}

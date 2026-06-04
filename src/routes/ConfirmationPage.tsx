@@ -3,7 +3,6 @@ import { Link, Navigate, useLocation } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { useTranslation } from '../i18n/I18nProvider';
 import { formatDateTime, formatParticipantNumber } from '../lib/format';
-import { PaperPlane, Sparkle } from '../components/decorations';
 import { Spinner } from '../components/Spinner';
 import { ApiError, api } from '../lib/api';
 import type { Attendee, InsuranceType } from '@shared/types';
@@ -76,7 +75,6 @@ export function ConfirmationPage() {
 
   return (
     <div className="relative overflow-hidden">
-      <PaperPlane className="absolute right-[28%] top-6 hidden h-32 w-72 lg:block" />
       <div className="relative mx-auto max-w-7xl px-4 py-10 sm:px-6 lg:py-14">
         {displayed ? (
           <Loaded participantNumber={displayed.participantNumber} attendee={displayed.attendee} />
@@ -130,7 +128,7 @@ function Loaded({
   return (
     <>
       <header className="flex items-start gap-5">
-        <div className="grid h-16 w-16 shrink-0 place-items-center rounded-full bg-emerald-500 text-white shadow-cardLg">
+        <div className="grid h-16 w-16 shrink-0 place-items-center rounded-lg border border-brand-400/30 bg-brand-600 text-white shadow-cardLg">
           <CheckIcon />
         </div>
         <div>
@@ -148,7 +146,7 @@ function Loaded({
       <div className="mt-10 grid gap-6 lg:grid-cols-3">
         <section className="card-lg p-6 lg:row-span-2">
           <div className="mb-4 flex items-center gap-2">
-            <div className="grid h-9 w-9 place-items-center rounded-full bg-brand-50 text-brand-600">
+            <div className="grid h-9 w-9 place-items-center rounded-lg bg-brand-500/10 text-brand-200">
               <UserMiniIcon />
             </div>
             <h2 className="text-base font-semibold text-slate-800">
@@ -171,10 +169,7 @@ function Loaded({
         </section>
 
         <section className="card-lg relative overflow-hidden p-6 text-center">
-          <Sparkle className="spark absolute left-4 top-6 h-6 w-6" />
-          <Sparkle className="spark absolute right-6 top-10 h-4 w-4 [animation-delay:600ms]" />
-          <Sparkle className="spark absolute bottom-8 left-8 h-5 w-5 [animation-delay:1200ms]" />
-          <Sparkle className="spark absolute bottom-6 right-10 h-4 w-4 [animation-delay:300ms]" />
+          <div className="absolute inset-x-6 top-0 h-px bg-gradient-to-r from-transparent via-brand-300/70 to-transparent" />
           <div className="text-sm font-semibold text-slate-600">
             {t('confirmation.numberLabel')}
           </div>
@@ -187,7 +182,6 @@ function Loaded({
         </section>
 
         <section className="card-lg relative overflow-hidden p-6">
-          <div className="absolute -right-12 -top-12 h-32 w-32 rounded-full bg-brand-100/60 blur-2xl" />
           <div className="relative flex flex-col items-center text-center">
             <EnvelopeIllustration className="h-24 w-auto" />
             <h2 className="mt-4 text-base font-semibold text-slate-800">
@@ -196,7 +190,7 @@ function Loaded({
             <p className="mt-1 text-sm text-slate-600">
               {t('confirmation.email.body')}
             </p>
-            <div className="mt-4 rounded-xl bg-brand-50 px-3 py-2 text-xs text-brand-700">
+            <div className="mt-4 rounded-lg border border-brand-400/20 bg-brand-500/10 px-3 py-2 text-xs text-brand-100">
               <InfoIcon className="mr-1 inline h-3.5 w-3.5" />
               {t('confirmation.email.spam')}
             </div>
@@ -253,7 +247,7 @@ function NoticeRow({
 }) {
   return (
     <div className="flex items-start gap-3">
-      <div className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-brand-50 text-brand-600">
+      <div className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-brand-500/10 text-brand-200">
         {icon}
       </div>
       <div>
@@ -306,11 +300,11 @@ function SendMiniIcon() {
 function EnvelopeIllustration({ className }: { className?: string }) {
   return (
     <svg viewBox="0 0 120 90" className={className} aria-hidden="true">
-      <rect x="20" y="22" width="80" height="54" rx="6" fill="#e5eef7" />
-      <path d="M20 28 L 60 56 L 100 28" fill="none" stroke="#5b9bd5" strokeWidth="2" />
-      <rect x="28" y="14" width="64" height="40" rx="4" fill="#ffffff" stroke="#cfdfee" />
-      <path d="M34 24 h 52 M34 32 h 40 M34 40 h 30" stroke="#9cc6e8" strokeWidth="2" strokeLinecap="round" />
-      <circle cx="92" cy="68" r="10" fill="#22c55e" />
+      <rect x="20" y="22" width="80" height="54" rx="6" fill="#09090b" stroke="#ffffff" strokeOpacity="0.18" />
+      <path d="M20 28 L 60 56 L 100 28" fill="none" stroke="#e11d2e" strokeWidth="2" />
+      <rect x="28" y="14" width="64" height="40" rx="4" fill="#151519" stroke="#3f3f46" />
+      <path d="M34 24 h 52 M34 32 h 40 M34 40 h 30" stroke="#fb7185" strokeWidth="2" strokeLinecap="round" />
+      <circle cx="92" cy="68" r="10" fill="#e11d2e" />
       <path d="M87 68 l 4 4 l 7 -8" fill="none" stroke="#ffffff" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
     </svg>
   );

@@ -60,7 +60,7 @@ export function AttendeeTable() {
 
   return (
     <div className="card overflow-hidden">
-      <div className="flex flex-col gap-3 border-b border-slate-200 p-4 lg:flex-row lg:items-center lg:justify-between">
+      <div className="flex flex-col gap-3 border-b border-white/10 p-4 lg:flex-row lg:items-center lg:justify-between">
         <input
           type="search"
           className="input lg:max-w-sm"
@@ -70,7 +70,7 @@ export function AttendeeTable() {
         />
         <div className="flex flex-wrap items-center gap-2">
           {isPlaceholderData && (
-            <div className="flex items-center gap-2 text-xs text-slate-500">
+            <div className="flex items-center gap-2 text-xs text-slate-400">
               <Spinner /> {t('common.loading')}
             </div>
           )}
@@ -104,17 +104,17 @@ export function AttendeeTable() {
       )}
 
       {isLoading ? (
-        <div className="p-6 text-center text-slate-500">
+        <div className="p-6 text-center text-slate-400">
           <Spinner /> <span className="ml-2">{t('common.loading')}</span>
         </div>
       ) : data && data.items.length === 0 ? (
-        <div className="p-6 text-center text-sm text-slate-500">
+        <div className="p-6 text-center text-sm text-slate-400">
           {t('dashboard.table.empty')}
         </div>
       ) : (
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
-            <thead className="bg-slate-50 text-xs uppercase tracking-wide text-slate-500">
+            <thead className="bg-white/5 text-xs uppercase tracking-wide text-slate-400">
               <tr>
                 <th className="px-4 py-2 text-left">{t('dashboard.table.number')}</th>
                 <th className="px-4 py-2 text-left">{t('dashboard.table.nombre')}</th>
@@ -124,23 +124,23 @@ export function AttendeeTable() {
                 <th className="px-4 py-2 text-left">{t('dashboard.table.createdAt')}</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-100">
+            <tbody className="divide-y divide-white/10">
               {data?.items.map((a) => (
                 <tr
                   key={a.id}
-                  className="cursor-pointer transition hover:bg-slate-50"
+                  className="cursor-pointer transition hover:bg-white/10"
                   onClick={() => setSelected(a)}
                 >
-                  <td className="px-4 py-2 font-mono text-brand-700">
+                  <td className="px-4 py-2 font-mono text-brand-300">
                     {formatParticipantNumber(a.participantNumber)}
                   </td>
-                  <td className="px-4 py-2 font-medium text-slate-900">{a.nombre}</td>
-                  <td className="px-4 py-2 text-slate-600">{a.email}</td>
-                  <td className="px-4 py-2 text-slate-600">{a.telefono}</td>
-                  <td className="px-4 py-2 text-slate-600">
+                  <td className="px-4 py-2 font-medium text-white">{a.nombre}</td>
+                  <td className="px-4 py-2 text-slate-300">{a.email}</td>
+                  <td className="px-4 py-2 text-slate-300">{a.telefono}</td>
+                  <td className="px-4 py-2 text-slate-300">
                     {t(`insurance.${a.insuranceType}`)}
                   </td>
-                  <td className="px-4 py-2 text-slate-500">
+                  <td className="px-4 py-2 text-slate-400">
                     {formatDateTime(a.createdAt, locale)}
                   </td>
                 </tr>
@@ -151,7 +151,7 @@ export function AttendeeTable() {
       )}
 
       {data && data.total > 0 && (
-        <div className="flex items-center justify-between border-t border-slate-200 px-4 py-3 text-xs text-slate-600">
+        <div className="flex items-center justify-between border-t border-white/10 px-4 py-3 text-xs text-slate-300">
           <span>
             {t('dashboard.pagination.info', {
               page,
@@ -216,7 +216,7 @@ function downloadCsv(
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
-  a.download = `gifted-grads-leads-${new Date().toISOString().slice(0, 10)}.csv`;
+  a.download = `take-the-l33d-leads-${new Date().toISOString().slice(0, 10)}.csv`;
   document.body.appendChild(a);
   a.click();
   a.remove();

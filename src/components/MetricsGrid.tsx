@@ -18,14 +18,14 @@ function BarRow({
   return (
     <div className="text-xs">
       <div className="flex items-center justify-between">
-        <span className="truncate pr-2 text-slate-700">{label}</span>
-        <span className="font-medium text-slate-900 whitespace-nowrap">
+        <span className="truncate pr-2 text-slate-300">{label}</span>
+        <span className="whitespace-nowrap font-medium text-white">
           {count} · {formatPercent(percent)}
         </span>
       </div>
-      <div className="mt-1 h-1.5 w-full rounded-full bg-slate-100">
+      <div className="mt-1 h-1.5 w-full rounded-full bg-white/10">
         <div
-          className="h-full rounded-full bg-brand-500"
+          className="h-full rounded-full bg-brand-500 shadow-[0_0_18px_rgba(225,29,46,0.55)]"
           style={{ width: `${Math.min(100, percent)}%` }}
         />
       </div>
@@ -41,7 +41,7 @@ export function MetricsGrid() {
 
   if (isLoading) {
     return (
-      <div className="flex items-center gap-2 text-slate-500">
+      <div className="flex items-center gap-2 text-slate-400">
         <Spinner />
         <span>{t('common.loading')}</span>
       </div>
@@ -70,7 +70,7 @@ export function MetricsGrid() {
       >
         <div className="space-y-2">
           {INSURANCE_TYPES.every((k) => data.byInsuranceType[k] === 0) && (
-            <div className="text-xs text-slate-500">—</div>
+            <div className="text-xs text-slate-400">-</div>
           )}
           {INSURANCE_TYPES.map((k) =>
             data.byInsuranceType[k] > 0 ? (

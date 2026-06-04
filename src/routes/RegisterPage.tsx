@@ -1,53 +1,50 @@
 import { useTranslation } from '../i18n/I18nProvider';
 import { JotformEmbed } from '../components/JotformEmbed';
-import { PaperPlane, Sparkle, SunBurst } from '../components/decorations';
+import { Sparkle } from '../components/decorations';
 
 export function RegisterPage() {
   const { t } = useTranslation();
   return (
-    <div className="relative isolate overflow-hidden bg-slate-50">
-      <SunBurst className="absolute -right-28 top-10 h-[28rem] w-[28rem] opacity-80" />
-      <PaperPlane className="absolute right-[18%] top-28 hidden h-24 w-48 opacity-70 xl:block" />
-
-      <div className="relative mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:py-10">
+    <div className="relative isolate overflow-hidden">
+      <div className="relative mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:py-12">
         <header className="max-w-3xl">
-          <div className="inline-flex items-center gap-2 rounded-full border border-brand-100 bg-white px-3 py-1 text-xs font-semibold uppercase tracking-wide text-brand-700 shadow-sm">
-            <Sparkle className="h-3.5 w-3.5 text-accent-500" />
+          <div className="premium-kicker">
+            <Sparkle className="h-3.5 w-3.5 text-brand-300" />
             {t('register.badge')}
           </div>
-          <h1 className="mt-5 text-4xl font-bold leading-tight text-slate-950 sm:text-5xl lg:text-6xl">
+          <h1 className="mt-5 max-w-4xl text-4xl font-bold leading-tight text-white sm:text-5xl lg:text-6xl">
             {t('register.title.line1')}{' '}
-            <span className="accent-underline text-brand-500">
+            <span className="accent-underline text-brand-300">
               {t('register.title.line2')}
             </span>
           </h1>
-          <p className="mt-5 max-w-2xl text-lg leading-8 text-slate-600">
+          <p className="mt-5 max-w-2xl text-lg leading-8 text-slate-300">
             {t('register.subtitle')}
           </p>
         </header>
 
         <div className="mt-8 grid items-stretch gap-4 lg:grid-cols-[minmax(0,1.45fr)_minmax(340px,0.8fr)]">
-          <section className="flex flex-col rounded-3xl border border-slate-200 bg-white p-5 shadow-cardLg sm:p-7 lg:p-8">
-            <div className="mb-6 flex flex-col gap-4 border-b border-slate-100 pb-5 sm:flex-row sm:items-center sm:justify-between">
+          <section className="glass-panel-strong flex flex-col p-5 sm:p-7 lg:p-8">
+            <div className="mb-6 flex flex-col gap-4 border-b border-white/10 pb-5 sm:flex-row sm:items-center sm:justify-between">
               <div className="flex items-center gap-3">
-                <div className="grid h-11 w-11 place-items-center rounded-2xl bg-brand-50 text-brand-600">
+                <div className="grid h-11 w-11 place-items-center rounded-lg border border-brand-400/30 bg-brand-500/10 text-brand-200">
                   <UserIcon />
                 </div>
                 <div>
-                  <h2 className="text-xl font-bold text-slate-900">
+                  <h2 className="text-xl font-bold text-white">
                     {t('register.formTitle')}
                   </h2>
-                  <p className="text-sm text-slate-500">{t('register.formSubtitle')}</p>
+                  <p className="text-sm text-slate-400">{t('register.formSubtitle')}</p>
                 </div>
               </div>
-              <div className="inline-flex w-fit items-center gap-2 rounded-full bg-accent-50 px-3 py-1.5 text-xs font-semibold text-accent-800">
+              <div className="inline-flex w-fit items-center gap-2 whitespace-nowrap rounded-full border border-brand-400/30 bg-brand-500/10 px-3 py-1.5 text-xs font-semibold text-brand-100">
                 <GiftIcon className="h-4 w-4" />
                 {t('register.formPill')}
               </div>
             </div>
             <JotformEmbed />
             <div className="mt-auto pt-6">
-              <div className="rounded-2xl border border-brand-100 bg-brand-50 px-4 py-3 text-sm leading-6 text-brand-900">
+              <div className="rounded-lg border border-brand-400/20 bg-brand-500/10 px-4 py-3 text-sm leading-6 text-brand-100">
                 <div className="mb-1 flex items-center gap-2 font-semibold">
                   <InfoIcon />
                   {t('register.disclaimer.title')}
@@ -57,11 +54,11 @@ export function RegisterPage() {
             </div>
           </section>
 
-          <aside className="relative overflow-hidden rounded-3xl bg-brand-900 p-6 text-white shadow-cardLg sm:p-7 lg:p-8">
-            <div className="absolute -right-16 -top-16 h-52 w-52 rounded-full bg-accent-400/20 blur-3xl" />
-            <div className="absolute -bottom-20 left-10 h-56 w-56 rounded-full bg-brand-400/20 blur-3xl" />
+          <aside className="glass-panel relative overflow-hidden p-6 text-white sm:p-7 lg:p-8">
+            <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/30 to-transparent" />
+            <div className="absolute inset-y-0 right-0 w-px bg-gradient-to-b from-transparent via-brand-400/40 to-transparent" />
             <div className="relative flex h-full flex-col">
-              <div className="rounded-2xl border border-white/10 bg-white/8 p-5 shadow-sm">
+              <div className="rounded-lg border border-white/10 bg-white/10 p-5 shadow-sm backdrop-blur-xl">
                 <div className="flex items-start justify-between gap-4">
                   <div>
                     <p className="text-sm font-medium text-brand-100">
@@ -71,7 +68,7 @@ export function RegisterPage() {
                       {t('register.giveaway.highlight')}
                     </p>
                   </div>
-                  <div className="grid h-12 w-12 shrink-0 place-items-center rounded-2xl bg-accent-400 text-brand-950">
+                  <div className="grid h-12 w-12 shrink-0 place-items-center rounded-lg bg-brand-600 text-white shadow-card">
                     <GiftIcon className="h-6 w-6" />
                   </div>
                 </div>
@@ -93,7 +90,7 @@ export function RegisterPage() {
               </div>
 
               <div className="mt-6">
-                <div className="rounded-2xl bg-white/10 p-4 text-sm leading-6 text-brand-50">
+                <div className="rounded-lg border border-white/10 bg-white/10 p-4 text-sm leading-6 text-brand-50 backdrop-blur-xl">
                   {t('register.sidebar.note')}
                 </div>
               </div>
@@ -116,12 +113,12 @@ function FeatureRow({
 }) {
   return (
     <div className="flex items-start gap-3">
-      <div className="grid h-10 w-10 shrink-0 place-items-center rounded-2xl bg-white/10 text-accent-300 ring-1 ring-white/10">
+      <div className="grid h-10 w-10 shrink-0 place-items-center rounded-lg bg-white/10 text-brand-300 ring-1 ring-white/10">
         {icon}
       </div>
       <div>
         <div className="font-semibold text-white">{title}</div>
-        <p className="text-sm leading-6 text-brand-100">{children}</p>
+        <p className="text-sm leading-6 text-slate-300">{children}</p>
       </div>
     </div>
   );
@@ -177,12 +174,13 @@ function TeamIcon() {
 function IpadIllustration({ className }: { className?: string }) {
   return (
     <svg viewBox="0 0 120 90" className={className} aria-hidden="true">
-      <rect x="22" y="6" width="76" height="62" rx="6" fill="#1e3a5f" />
-      <rect x="26" y="10" width="68" height="54" rx="3" fill="#5b9bd5" />
-      <path d="M26 38 Q 60 18 94 38 L 94 64 L 26 64 Z" fill="#7eb1dc" />
-      <circle cx="86" cy="20" r="3" fill="#f5c518" />
-      <rect x="14" y="68" width="92" height="6" rx="3" fill="#dfe7ef" />
-      <rect x="22" y="74" width="76" height="3" rx="1.5" fill="#cfd8e3" />
+      <rect x="22" y="6" width="76" height="62" rx="6" fill="#09090b" stroke="#ffffff" strokeOpacity="0.18" />
+      <rect x="26" y="10" width="68" height="54" rx="3" fill="#160307" />
+      <path d="M28 52 C 46 24 70 20 92 34" fill="none" stroke="#e11d2e" strokeWidth="5" strokeLinecap="round" opacity="0.8" />
+      <path d="M34 18 h 42" stroke="#ffffff" strokeOpacity="0.42" strokeWidth="2" strokeLinecap="round" />
+      <circle cx="86" cy="20" r="3" fill="#fb7185" />
+      <rect x="14" y="68" width="92" height="6" rx="3" fill="#27272a" />
+      <rect x="22" y="74" width="76" height="3" rx="1.5" fill="#52525b" />
     </svg>
   );
 }

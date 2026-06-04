@@ -48,7 +48,7 @@ export function App() {
     <QueryClientProvider client={queryClient}>
       <I18nProvider>
         <BrowserRouter>
-          <div className="min-h-full flex flex-col">
+          <div className="premium-app flex min-h-full flex-col">
             <Header />
             <main className="flex-1">
               <Routes>

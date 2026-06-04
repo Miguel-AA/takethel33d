@@ -30,21 +30,21 @@ export function AttendeeDetailModal({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-end justify-center bg-slate-900/50 p-4 sm:items-center"
+      className="fixed inset-0 z-50 flex items-end justify-center bg-black/70 p-4 backdrop-blur-sm sm:items-center"
       role="dialog"
       aria-modal="true"
       onClick={onClose}
     >
       <div
-        className="w-full max-w-md rounded-xl bg-white shadow-xl"
+        className="glass-panel-strong w-full max-w-md"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="flex items-center justify-between border-b border-slate-200 p-4">
+        <div className="flex items-center justify-between border-b border-white/10 p-4">
           <div>
-            <div className="text-xs uppercase tracking-wide text-slate-500">
+            <div className="text-xs uppercase tracking-wide text-slate-400">
               {t('detail.title')}
             </div>
-            <div className="font-mono text-2xl font-semibold text-brand-700">
+            <div className="font-mono text-2xl font-semibold text-brand-200">
               #{formatParticipantNumber(attendee.participantNumber)}
             </div>
           </div>
@@ -56,11 +56,11 @@ export function AttendeeDetailModal({
             {t('detail.close')}
           </button>
         </div>
-        <dl className="divide-y divide-slate-100 px-4">
+        <dl className="divide-y divide-white/10 px-4">
           {rows.map(([label, value]) => (
             <div key={label} className="grid grid-cols-3 gap-2 py-2 text-sm">
-              <dt className="text-slate-500">{label}</dt>
-              <dd className="col-span-2 font-medium text-slate-900">{value}</dd>
+              <dt className="text-slate-400">{label}</dt>
+              <dd className="col-span-2 font-medium text-white">{value}</dd>
             </div>
           ))}
         </dl>
