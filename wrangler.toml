@@ -25,9 +25,9 @@ ORGANIZER_EMAIL = "info@aainsurances.com"
 JOTFORM_ALLOWED_FORM_IDS = "261465857224059"
 
 # D1 binding. Replace `database_id` with the id printed by:
-#   npx wrangler d1 create gifted-grads
+#   npx wrangler d1 create taketheleed
 [[d1_databases]]
 binding = "DB"
-database_name = "gifted-grads"
-database_id = "REPLACE_WITH_YOUR_D1_DATABASE_ID"
+database_name = "taketheleed"
+database_id = "fe66fac1-30a0-4910-8bc3-55388e9b8b63"
 migrations_dir = "migrations"
