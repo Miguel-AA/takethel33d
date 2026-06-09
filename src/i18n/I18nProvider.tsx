@@ -27,7 +27,7 @@ const I18nContext = createContext<I18nContextValue | null>(null);
 function detectInitialLocale(): Locale {
   const stored = localStorage.getItem(LOCALE_KEY);
   if (stored === 'es' || stored === 'en') return stored;
-  return 'es';
+  return 'en';
 }
 
 export function I18nProvider({ children }: { children: ReactNode }) {

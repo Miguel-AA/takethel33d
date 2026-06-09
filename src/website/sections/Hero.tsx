@@ -18,8 +18,9 @@ export function Hero({ copy }: { copy: LandingCopy['hero'] }) {
       aria-labelledby="hero-title"
       className="section-x relative pb-16 pt-14 text-center lg:pb-24 lg:pt-20"
     >
-      {/* Centered copy */}
-      <div className="mx-auto flex max-w-3xl flex-col items-center">
+      {/* Centered copy, wrapped in the same frosted glass container as the app
+          register hero and the interior PageHero. */}
+      <div className="glass-panel-strong mx-auto flex max-w-4xl flex-col items-center px-6 py-12 sm:px-12 sm:py-16">
         <span className="premium-kicker">{copy.badge}</span>
         <h1
           id="hero-title"

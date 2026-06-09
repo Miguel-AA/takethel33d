@@ -1,5 +1,5 @@
 import { useTranslation } from '../i18n/I18nProvider';
-import { JotformEmbed } from '../components/JotformEmbed';
+import { RegisterForm } from '../components/RegisterForm';
 
 export function RegisterPage() {
   const { t } = useTranslation();
@@ -46,7 +46,7 @@ export function RegisterPage() {
                 {t('register.formPill')}
               </div>
             </div>
-            <JotformEmbed />
+            <RegisterForm />
             <div className="mt-auto pt-6">
               <div className="rounded-lg border border-brand-400/20 bg-brand-500/10 px-4 py-3 text-sm leading-6 text-brand-700">
                 <div className="mb-1 flex items-center gap-2 font-semibold">

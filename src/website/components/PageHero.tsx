@@ -1,7 +1,9 @@
 // Interior marketing-page hero. Mirrors the home Hero's heading treatment —
 // premium kicker, large two-tone title (black with a blue-gradient emphasis),
-// and lead subtitle — so every page opens with the same look. The home-only
-// content blocks (CTA buttons, the live mockup) intentionally stay on the home Hero.
+// and lead subtitle — wrapped in the same frosted glass-panel-strong container
+// used by the home Hero and the app register hero, so every page opens with the
+// same look. The home-only content blocks (CTA buttons, the live mockup)
+// intentionally stay on the home Hero.
 
 export function PageHero({
   id,
@@ -19,8 +21,8 @@ export function PageHero({
   subtitle?: string;
 }) {
   return (
-    <section className="section-x relative isolate pb-12 pt-14 text-center lg:pb-16 lg:pt-20">
-      <div className="mx-auto flex max-w-3xl flex-col items-center">
+    <section className="section-x relative isolate pb-12 pt-14 lg:pb-16 lg:pt-20">
+      <div className="glass-panel-strong mx-auto flex max-w-4xl flex-col items-center px-6 py-12 text-center sm:px-12 sm:py-16">
         <span className="premium-kicker">{kicker}</span>
         <h1
           id={id}
