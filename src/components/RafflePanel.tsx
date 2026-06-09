@@ -62,11 +62,11 @@ export function RafflePanel() {
   return (
     <div className="card p-5 space-y-4">
       <div className="flex items-center justify-between">
-        <h3 className="text-base font-semibold text-white">
+        <h3 className="text-base font-semibold text-slate-900">
           {t('dashboard.section.raffle')}
         </h3>
         {displayed && (
-          <span className="text-xs text-slate-400">
+          <span className="text-xs text-slate-500">
             {t('raffle.previous')} · {formatDateTime(displayed.drawnAt, locale)}
           </span>
         )}
@@ -76,23 +76,23 @@ export function RafflePanel() {
 
       {displayed && (
         <div className="rounded-lg border border-brand-400/20 bg-brand-500/10 p-4">
-          <div className="text-xs uppercase tracking-wide text-brand-200">
+          <div className="text-xs uppercase tracking-wide text-brand-700">
             {t('raffle.winner.title')}
           </div>
           <div className="mt-2 grid gap-2 sm:grid-cols-3">
             <div>
-              <div className="text-xs text-slate-400">{t('raffle.winner.number')}</div>
-              <div className="font-mono text-2xl font-bold text-brand-200">
+              <div className="text-xs text-slate-500">{t('raffle.winner.number')}</div>
+              <div className="font-mono text-2xl font-bold text-brand-700">
                 #{formatParticipantNumber(displayed.winner.participantNumber)}
               </div>
             </div>
             <div>
-              <div className="text-xs text-slate-400">{t('raffle.winner.name')}</div>
-              <div className="font-medium text-white">{displayed.winner.nombre}</div>
+              <div className="text-xs text-slate-500">{t('raffle.winner.name')}</div>
+              <div className="font-medium text-slate-900">{displayed.winner.nombre}</div>
             </div>
             <div>
-              <div className="text-xs text-slate-400">{t('raffle.winner.email')}</div>
-              <div className="font-medium text-white">{displayed.winner.email}</div>
+              <div className="text-xs text-slate-500">{t('raffle.winner.email')}</div>
+              <div className="font-medium text-slate-900">{displayed.winner.email}</div>
             </div>
           </div>
           {lastResult && (
@@ -100,7 +100,7 @@ export function RafflePanel() {
               {lastResult.emailSent ? (
                 <span className="text-emerald-700">✓ {t('raffle.winner.emailSent')}</span>
               ) : (
-                <span className="text-accent-200">! {t('raffle.winner.emailFailed')}</span>
+                <span className="text-amber-600">! {t('raffle.winner.emailFailed')}</span>
               )}
             </div>
           )}

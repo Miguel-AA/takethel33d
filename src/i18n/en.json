@@ -1,6 +1,6 @@
 {
   "app.title": "TAKE THE L33D",
-  "app.tagline": "Trusted lead capture",
+  "app.tagline": "Driving business growth through quality leads",
   "nav.home": "Home",
   "nav.register": "Register",
   "nav.event": "Event",
@@ -9,8 +9,8 @@
   "nav.logout": "Sign out",
 
   "register.title": "Request a quote",
-  "register.title.line1": "Build trusted growth with",
-  "register.title.line2": "TAKE THE L33D",
+  "register.title.line1": "Driving business growth through",
+  "register.title.line2": "quality leads",
   "register.subtitle": "A modern lead intake experience designed to feel credible from the first click: secure submission, clear follow-up, and confident reporting.",
   "register.badge": "Trusted lead engine",
   "register.trust.secure": "Secure intake",

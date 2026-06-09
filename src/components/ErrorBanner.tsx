@@ -11,7 +11,7 @@ export function ErrorBanner({
     <div
       role="alert"
       className={clsx(
-        'rounded-lg border border-brand-400/30 bg-brand-500/10 px-4 py-3 text-sm text-brand-100 backdrop-blur-xl',
+        'rounded-lg border border-red-300 bg-red-50 px-4 py-3 text-sm font-medium text-red-700 backdrop-blur-xl',
         className,
       )}
     >

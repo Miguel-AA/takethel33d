@@ -125,7 +125,7 @@ export function RegisterForm() {
         )}
       </button>
 
-      <p className="flex items-center justify-center gap-1 text-center text-xs text-slate-400">
+      <p className="flex items-center justify-center gap-1 text-center text-xs text-slate-500">
         <LockMiniIcon /> {t('register.privacy')}
       </p>
     </form>
@@ -149,7 +149,7 @@ function Field({
         {label}
       </label>
       {children}
-      {error && <p className="mt-1 text-xs text-brand-300">{error}</p>}
+      {error && <p className="mt-1 text-xs text-red-600">{error}</p>}
     </div>
   );
 }

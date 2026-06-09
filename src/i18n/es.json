@@ -1,6 +1,6 @@
 {
   "app.title": "TAKE THE L33D",
-  "app.tagline": "Captura confiable de leads",
+  "app.tagline": "Driving business growth through quality leads",
   "nav.home": "Inicio",
   "nav.register": "Registro",
   "nav.event": "Evento",
@@ -9,8 +9,8 @@
   "nav.logout": "Cerrar sesión",
 
   "register.title": "Solicita tu cotización",
-  "register.title.line1": "Crecimiento confiable con",
-  "register.title.line2": "TAKE THE L33D",
+  "register.title.line1": "Driving business growth through",
+  "register.title.line2": "quality leads",
   "register.subtitle": "Una experiencia moderna para leads que se siente confiable desde el primer click: envio seguro, seguimiento claro y reportes con control.",
   "register.badge": "Motor confiable de leads",
   "register.trust.secure": "Entrada segura",

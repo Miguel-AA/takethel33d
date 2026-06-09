@@ -9,26 +9,11 @@
     height: 100%;
   }
   body {
-    @apply bg-black text-slate-100 antialiased font-sans;
-    background-image:
-      linear-gradient(112deg, rgba(255, 255, 255, 0.13) 0%, transparent 12%, transparent 62%, rgba(255, 255, 255, 0.07) 69%, transparent 76%),
-      linear-gradient(138deg, rgba(37, 99, 235, 0.46) 0%, transparent 18%, transparent 82%, rgba(6, 182, 212, 0.3) 100%),
-      url('/trust-glass-bg.svg'),
-      linear-gradient(135deg, #020617 0%, #071426 46%, #020617 100%);
-    background-position: center;
-    background-size: cover;
+    @apply text-slate-800 antialiased font-sans;
+    /* Light fallback shown only if the background video fails to load. */
+    background-color: #e9edf2;
+    background-image: linear-gradient(180deg, #ffffff 0%, #eef1f5 42%, #e6e9ef 100%);
     background-attachment: fixed;
-  }
-  body::before {
-    content: '';
-    position: fixed;
-    inset: 0;
-    pointer-events: none;
-    background:
-      linear-gradient(100deg, transparent 0 34%, rgba(255, 255, 255, 0.09) 35%, transparent 39%),
-      linear-gradient(116deg, transparent 0 64%, rgba(56, 189, 248, 0.18) 65%, transparent 71%);
-    mix-blend-mode: screen;
-    opacity: 0.58;
   }
 }
 
@@ -38,38 +23,38 @@
     @apply inline-flex items-center justify-center gap-2 rounded-lg px-5 py-2.5 text-sm font-semibold transition disabled:cursor-not-allowed disabled:opacity-60;
   }
   .btn-primary {
-    @apply btn bg-accent-600 text-white shadow-card hover:bg-accent-500 focus:outline-none focus:ring-2 focus:ring-accent-300;
+    @apply btn bg-brand-600 text-white shadow-card hover:bg-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-300;
   }
   .btn-secondary {
-    @apply btn border border-white/20 bg-white/10 text-white backdrop-blur-xl hover:border-brand-400/60 hover:bg-brand-500/20 focus:outline-none focus:ring-2 focus:ring-brand-400/50;
+    @apply btn border border-white/40 bg-white/60 text-slate-800 shadow-sm backdrop-blur-xl hover:border-brand-400/60 hover:bg-white hover:text-brand-700 focus:outline-none focus:ring-2 focus:ring-brand-400/40;
   }
   .btn-ghost {
-    @apply btn text-slate-300 hover:bg-white/10 hover:text-white;
+    @apply btn text-slate-600 hover:bg-slate-900/5 hover:text-slate-900;
   }
 
   /* Forms */
   .input {
-    @apply block w-full rounded-lg border border-white/20 bg-black/30 px-3.5 py-2.5 text-sm text-white placeholder:text-slate-500 shadow-inner backdrop-blur-xl focus:border-brand-400 focus:outline-none focus:ring-2 focus:ring-brand-500/30;
+    @apply block w-full rounded-lg border border-slate-300 bg-white px-3.5 py-2.5 text-sm text-slate-900 placeholder:text-slate-400 shadow-sm focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/25;
   }
   .label {
-    @apply mb-1.5 block text-sm font-semibold text-slate-200;
+    @apply mb-1.5 block text-sm font-semibold text-slate-700;
   }
 
-  /* Cards */
+  /* Cards / white glass — translucent frosted surfaces over the video wall. */
   .card {
-    @apply rounded-lg border border-white/10 bg-black/40 shadow-card backdrop-blur-2xl;
+    @apply rounded-lg border border-white/35 bg-white/35 shadow-card backdrop-blur-2xl;
   }
   .card-lg {
-    @apply rounded-lg border border-white/10 bg-black/50 shadow-cardLg backdrop-blur-2xl;
+    @apply rounded-lg border border-white/35 bg-white/40 shadow-cardLg backdrop-blur-2xl;
   }
   .glass-panel {
-    @apply rounded-lg border border-white/10 bg-black/40 shadow-cardLg backdrop-blur-2xl;
+    @apply rounded-lg border border-white/35 bg-white/30 shadow-cardLg backdrop-blur-2xl;
   }
   .glass-panel-strong {
-    @apply rounded-lg border border-white/20 bg-black/60 shadow-cardLg backdrop-blur-2xl;
+    @apply rounded-lg border border-white/40 bg-white/40 shadow-cardLg backdrop-blur-2xl;
   }
   .premium-kicker {
-    @apply inline-flex items-center gap-2 rounded-full border border-brand-400/30 bg-brand-500/10 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-brand-100 shadow-sm backdrop-blur-xl;
+    @apply inline-flex items-center gap-2 rounded-full border border-brand-500/20 bg-brand-500/10 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-brand-700 shadow-sm;
   }
 
   /* Decorative blue underline that sits under a heading */
@@ -84,65 +69,19 @@
 
   /* Nav link */
   .nav-link {
-    @apply text-sm font-medium text-slate-300 transition hover:text-white;
+    @apply text-sm font-medium text-slate-600 transition hover:text-slate-900;
   }
   .nav-link-active {
-    @apply relative text-white;
+    @apply relative text-slate-900;
   }
   .nav-link-active::after {
     content: '';
-    @apply absolute left-0 right-0 -bottom-1.5 h-0.5 rounded-full bg-brand-500;
+    @apply absolute left-0 right-0 -bottom-1.5 h-0.5 rounded-full bg-brand-600;
   }
 }
 
 .premium-app {
   min-height: 100%;
-  background:
-    linear-gradient(180deg, rgba(0, 0, 0, 0.32), rgba(0, 0, 0, 0.84)),
-    transparent;
-}
-
-.premium-app .bg-white {
-  background-color: rgba(9, 9, 12, 0.72);
-  backdrop-filter: blur(24px);
-}
-
-.premium-app .bg-slate-50,
-.premium-app .hover\:bg-slate-50:hover,
-.premium-app .hover\:bg-slate-100:hover {
-  background-color: rgba(255, 255, 255, 0.06);
-}
-
-.premium-app .border-slate-100,
-.premium-app .border-slate-200,
-.premium-app .border-slate-300,
-.premium-app .divide-slate-100 > :not([hidden]) ~ :not([hidden]) {
-  border-color: rgba(255, 255, 255, 0.12);
-}
-
-.premium-app .text-slate-950,
-.premium-app .text-slate-900,
-.premium-app .text-slate-800 {
-  color: rgba(255, 255, 255, 0.94);
-}
-
-.premium-app .text-slate-700,
-.premium-app .text-slate-600 {
-  color: rgba(226, 232, 240, 0.78);
-}
-
-.premium-app .text-slate-500 {
-  color: rgba(203, 213, 225, 0.66);
-}
-
-.premium-app .bg-brand-50 {
-  background-color: rgba(37, 99, 235, 0.12);
-}
-
-.premium-app .text-brand-700,
-.premium-app .text-brand-800,
-.premium-app .text-brand-900 {
-  color: #bfdbfe;
 }
 
 /* Subtle floating sparkles around the participant number */

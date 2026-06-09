@@ -6,21 +6,21 @@ export function RegisterPage() {
   return (
     <div className="relative isolate overflow-hidden">
       <div className="relative mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:py-12">
-        <header className="max-w-3xl">
+        <header className="glass-panel-strong flex w-full flex-col items-center px-6 py-12 text-center sm:px-12 sm:py-16">
           <div className="premium-kicker">
             <BadgeCheckIcon />
             {t('register.badge')}
           </div>
-          <h1 className="mt-5 max-w-4xl text-4xl font-bold leading-tight text-white sm:text-5xl lg:text-6xl">
+          <h1 className="mt-6 max-w-3xl text-4xl font-bold leading-tight text-slate-900 sm:text-5xl lg:text-6xl">
             {t('register.title.line1')}{' '}
-            <span className="accent-underline text-brand-300">
+            <span className="accent-underline text-brand-600">
               {t('register.title.line2')}
             </span>
           </h1>
-          <p className="mt-5 max-w-2xl text-lg leading-8 text-slate-300">
+          <p className="mt-5 max-w-2xl text-lg leading-8 text-slate-600">
             {t('register.subtitle')}
           </p>
-          <div className="mt-5 flex flex-wrap gap-2">
+          <div className="mt-7 flex flex-wrap justify-center gap-2">
             <TrustChip label={t('register.trust.secure')} />
             <TrustChip label={t('register.trust.clear')} />
             <TrustChip label={t('register.trust.followup')} />
@@ -29,26 +29,26 @@ export function RegisterPage() {
 
         <div className="mt-8 grid items-stretch gap-4 lg:grid-cols-[minmax(0,1.45fr)_minmax(340px,0.8fr)]">
           <section className="glass-panel-strong flex flex-col p-5 sm:p-7 lg:p-8">
-            <div className="mb-6 flex flex-col gap-4 border-b border-white/10 pb-5 sm:flex-row sm:items-center sm:justify-between">
+            <div className="mb-6 flex flex-col gap-4 border-b border-slate-900/10 pb-5 sm:flex-row sm:items-center sm:justify-between">
               <div className="flex items-center gap-3">
-                <div className="grid h-11 w-11 place-items-center rounded-lg border border-brand-400/30 bg-brand-500/10 text-brand-200">
+                <div className="grid h-11 w-11 place-items-center rounded-lg border border-brand-400/30 bg-brand-500/10 text-brand-600">
                   <UserIcon />
                 </div>
                 <div>
-                  <h2 className="text-xl font-bold text-white">
+                  <h2 className="text-xl font-bold text-slate-900">
                     {t('register.formTitle')}
                   </h2>
-                  <p className="text-sm text-slate-400">{t('register.formSubtitle')}</p>
+                  <p className="text-sm text-slate-500">{t('register.formSubtitle')}</p>
                 </div>
               </div>
-              <div className="inline-flex w-fit items-center gap-2 whitespace-nowrap rounded-full border border-brand-400/30 bg-brand-500/10 px-3 py-1.5 text-xs font-semibold text-brand-100">
+              <div className="inline-flex w-fit items-center gap-2 whitespace-nowrap rounded-full border border-brand-400/30 bg-brand-500/10 px-3 py-1.5 text-xs font-semibold text-brand-700">
                 <GiftIcon className="h-4 w-4" />
                 {t('register.formPill')}
               </div>
             </div>
             <JotformEmbed />
             <div className="mt-auto pt-6">
-              <div className="rounded-lg border border-brand-400/20 bg-brand-500/10 px-4 py-3 text-sm leading-6 text-brand-100">
+              <div className="rounded-lg border border-brand-400/20 bg-brand-500/10 px-4 py-3 text-sm leading-6 text-brand-700">
                 <div className="mb-1 flex items-center gap-2 font-semibold">
                   <InfoIcon />
                   {t('register.disclaimer.title')}
@@ -58,17 +58,17 @@ export function RegisterPage() {
             </div>
           </section>
 
-          <aside className="glass-panel relative overflow-hidden p-6 text-white sm:p-7 lg:p-8">
-            <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/30 to-transparent" />
+          <aside className="glass-panel relative overflow-hidden p-6 text-slate-900 sm:p-7 lg:p-8">
+            <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-slate-900/10 to-transparent" />
             <div className="absolute inset-y-0 right-0 w-px bg-gradient-to-b from-transparent via-brand-400/40 to-transparent" />
             <div className="relative flex h-full flex-col">
-              <div className="rounded-lg border border-white/10 bg-white/10 p-5 shadow-sm backdrop-blur-xl">
+              <div className="rounded-lg border border-white/35 bg-white/30 p-5 shadow-sm backdrop-blur-2xl">
                 <div className="flex items-start justify-between gap-4">
                   <div>
-                    <p className="text-sm font-medium text-brand-100">
+                    <p className="text-sm font-medium text-brand-700">
                       {t('register.giveaway.lead')}
                     </p>
-                    <p className="mt-2 text-xl font-bold leading-tight text-white">
+                    <p className="mt-2 text-xl font-bold leading-tight text-slate-900">
                       {t('register.giveaway.highlight')}
                     </p>
                   </div>
@@ -94,7 +94,7 @@ export function RegisterPage() {
               </div>
 
               <div className="mt-6">
-                <div className="rounded-lg border border-white/10 bg-white/10 p-4 text-sm leading-6 text-brand-50 backdrop-blur-xl">
+                <div className="rounded-lg border border-white/35 bg-white/30 p-4 text-sm leading-6 text-slate-700 backdrop-blur-2xl">
                   {t('register.sidebar.note')}
                 </div>
               </div>
@@ -117,12 +117,12 @@ function FeatureRow({
 }) {
   return (
     <div className="flex items-start gap-3">
-      <div className="grid h-10 w-10 shrink-0 place-items-center rounded-lg bg-white/10 text-brand-300 ring-1 ring-white/10">
+      <div className="grid h-10 w-10 shrink-0 place-items-center rounded-lg bg-brand-500/10 text-brand-600 ring-1 ring-slate-900/5">
         {icon}
       </div>
       <div>
-        <div className="font-semibold text-white">{title}</div>
-        <p className="text-sm leading-6 text-slate-300">{children}</p>
+        <div className="font-semibold text-slate-900">{title}</div>
+        <p className="text-sm leading-6 text-slate-600">{children}</p>
       </div>
     </div>
   );
@@ -178,11 +178,11 @@ function TeamIcon() {
 function IpadIllustration({ className }: { className?: string }) {
   return (
     <svg viewBox="0 0 120 90" className={className} aria-hidden="true">
-      <rect x="22" y="6" width="76" height="62" rx="6" fill="#09090b" stroke="#ffffff" strokeOpacity="0.18" />
-      <rect x="26" y="10" width="68" height="54" rx="3" fill="#071426" />
-      <path d="M28 52 C 46 24 70 20 92 34" fill="none" stroke="#38bdf8" strokeWidth="5" strokeLinecap="round" opacity="0.85" />
-      <path d="M34 18 h 42" stroke="#ffffff" strokeOpacity="0.42" strokeWidth="2" strokeLinecap="round" />
-      <circle cx="86" cy="20" r="3" fill="#67e8f9" />
+      <rect x="22" y="6" width="76" height="62" rx="6" fill="#0b1220" stroke="#1747c4" strokeOpacity="0.35" />
+      <rect x="26" y="10" width="68" height="54" rx="3" fill="#101b30" />
+      <path d="M28 52 C 46 24 70 20 92 34" fill="none" stroke="#4f7cf0" strokeWidth="5" strokeLinecap="round" opacity="0.95" />
+      <path d="M34 18 h 42" stroke="#c9ced4" strokeOpacity="0.65" strokeWidth="2" strokeLinecap="round" />
+      <circle cx="86" cy="20" r="3" fill="#84a8fb" />
       <rect x="14" y="68" width="92" height="6" rx="3" fill="#27272a" />
       <rect x="22" y="74" width="76" height="3" rx="1.5" fill="#52525b" />
     </svg>
@@ -191,8 +191,8 @@ function IpadIllustration({ className }: { className?: string }) {
 
 function TrustChip({ label }: { label: string }) {
   return (
-    <div className="inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/10 px-3 py-1.5 text-xs font-semibold text-slate-100 shadow-sm backdrop-blur-xl">
-      <svg viewBox="0 0 24 24" className="h-3.5 w-3.5 text-accent-300" fill="none" stroke="currentColor" strokeWidth="2.4">
+    <div className="inline-flex items-center gap-2 rounded-full border border-white/40 bg-white/55 px-3 py-1.5 text-xs font-semibold text-slate-700 shadow-sm backdrop-blur-xl">
+      <svg viewBox="0 0 24 24" className="h-3.5 w-3.5 text-brand-600" fill="none" stroke="currentColor" strokeWidth="2.4">
         <path d="M20 7 10 17l-5-5" strokeLinecap="round" strokeLinejoin="round" />
       </svg>
       {label}
@@ -202,7 +202,7 @@ function TrustChip({ label }: { label: string }) {
 
 function BadgeCheckIcon() {
   return (
-    <svg viewBox="0 0 24 24" className="h-3.5 w-3.5 text-accent-300" fill="none" stroke="currentColor" strokeWidth="2.4">
+    <svg viewBox="0 0 24 24" className="h-3.5 w-3.5 text-brand-600" fill="none" stroke="currentColor" strokeWidth="2.4">
       <path d="M12 3 5 6v5c0 4.5 3 7.8 7 10 4-2.2 7-5.5 7-10V6l-7-3Z" strokeLinejoin="round" />
       <path d="m9 12 2 2 4-5" strokeLinecap="round" strokeLinejoin="round" />
     </svg>

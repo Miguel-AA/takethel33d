@@ -146,7 +146,7 @@ function Loaded({
       <div className="mt-10 grid gap-6 lg:grid-cols-3">
         <section className="card-lg p-6 lg:row-span-2">
           <div className="mb-4 flex items-center gap-2">
-            <div className="grid h-9 w-9 place-items-center rounded-lg bg-brand-500/10 text-brand-200">
+            <div className="grid h-9 w-9 place-items-center rounded-lg bg-brand-500/10 text-brand-600">
               <UserMiniIcon />
             </div>
             <h2 className="text-base font-semibold text-slate-800">
@@ -190,7 +190,7 @@ function Loaded({
             <p className="mt-1 text-sm text-slate-600">
               {t('confirmation.email.body')}
             </p>
-            <div className="mt-4 rounded-lg border border-brand-400/20 bg-brand-500/10 px-3 py-2 text-xs text-brand-100">
+            <div className="mt-4 rounded-lg border border-brand-400/20 bg-brand-500/10 px-3 py-2 text-xs text-brand-700">
               <InfoIcon className="mr-1 inline h-3.5 w-3.5" />
               {t('confirmation.email.spam')}
             </div>
@@ -247,7 +247,7 @@ function NoticeRow({
 }) {
   return (
     <div className="flex items-start gap-3">
-      <div className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-brand-500/10 text-brand-200">
+      <div className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-brand-500/10 text-brand-600">
         {icon}
       </div>
       <div>
@@ -300,11 +300,11 @@ function SendMiniIcon() {
 function EnvelopeIllustration({ className }: { className?: string }) {
   return (
     <svg viewBox="0 0 120 90" className={className} aria-hidden="true">
-      <rect x="20" y="22" width="80" height="54" rx="6" fill="#09090b" stroke="#ffffff" strokeOpacity="0.18" />
-      <path d="M20 28 L 60 56 L 100 28" fill="none" stroke="#38bdf8" strokeWidth="2" />
-      <rect x="28" y="14" width="64" height="40" rx="4" fill="#151519" stroke="#3f3f46" />
-      <path d="M34 24 h 52 M34 32 h 40 M34 40 h 30" stroke="#67e8f9" strokeWidth="2" strokeLinecap="round" />
-      <circle cx="92" cy="68" r="10" fill="#2563eb" />
+      <rect x="20" y="22" width="80" height="54" rx="6" fill="#0b1220" stroke="#1747c4" strokeOpacity="0.35" />
+      <path d="M20 28 L 60 56 L 100 28" fill="none" stroke="#4f7cf0" strokeWidth="2" />
+      <rect x="28" y="14" width="64" height="40" rx="4" fill="#101b30" stroke="#565c63" />
+      <path d="M34 24 h 52 M34 32 h 40 M34 40 h 30" stroke="#c9ced4" strokeWidth="2" strokeLinecap="round" />
+      <circle cx="92" cy="68" r="10" fill="#1747c4" />
       <path d="M87 68 l 4 4 l 7 -8" fill="none" stroke="#ffffff" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
     </svg>
   );

@@ -5,7 +5,7 @@ export function LanguageToggle() {
   const { locale, setLocale } = useTranslation();
   const options: Locale[] = ['es', 'en'];
   return (
-    <div className="inline-flex rounded-lg border border-white/20 bg-black/40 p-0.5 text-xs font-medium backdrop-blur-xl">
+    <div className="inline-flex rounded-lg border border-white/40 bg-white/55 p-0.5 text-xs font-medium shadow-sm backdrop-blur-xl">
       {options.map((opt) => (
         <button
           key={opt}
@@ -14,8 +14,8 @@ export function LanguageToggle() {
           className={clsx(
             'px-2.5 py-1 rounded-md uppercase tracking-wide transition',
             locale === opt
-              ? 'bg-brand-600 text-white'
-              : 'text-slate-300 hover:bg-white/10 hover:text-white',
+              ? 'bg-brand-600 text-white shadow-sm'
+              : 'text-slate-500 hover:bg-slate-900/5 hover:text-slate-900',
           )}
           aria-pressed={locale === opt}
         >

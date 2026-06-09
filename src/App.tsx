@@ -49,6 +49,22 @@ export function App() {
       <I18nProvider>
         <BrowserRouter>
           <div className="premium-app flex min-h-full flex-col">
+            {/* App-wide video background (no overlay — glass comes from the cards). */}
+            <div
+              className="pointer-events-none fixed inset-0 -z-10 overflow-hidden"
+              aria-hidden="true"
+            >
+              <video
+                className="h-full w-full object-cover"
+                autoPlay
+                muted
+                loop
+                playsInline
+                preload="auto"
+              >
+                <source src="/taketheleedbg.mp4" type="video/mp4" />
+              </video>
+            </div>
             <Header />
             <main className="flex-1">
               <Routes>
