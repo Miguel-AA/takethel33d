@@ -62,8 +62,8 @@ export function MarketingHeader({ nav }: { nav: LandingCopy['nav'] }) {
     );
 
   return (
-    <header className="sticky top-0 z-40 border-b border-white/40 bg-white/55 backdrop-blur-2xl supports-[backdrop-filter]:bg-white/40">
-      <div className="section-x flex items-center justify-between gap-3 py-3 sm:py-4">
+    <header className="fixed inset-x-0 top-0 z-40 border-b border-white/40 bg-white/55 backdrop-blur-2xl supports-[backdrop-filter]:bg-white/40">
+      <div className="section-x flex h-16 items-center justify-between gap-3 sm:h-20">
         <Link
           to="/"
           className="flex min-w-0 items-center"

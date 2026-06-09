@@ -72,7 +72,10 @@ function AppLayout() {
 
       {showAppHeader && <Header />}
 
-      <main className="flex-1">
+      {/* When the fixed app header is shown, offset main by its height (h-16 sm:h-20).
+          Marketing routes have no app header here — their own fixed MarketingHeader
+          is offset inside MarketingLayout instead. */}
+      <main className={`flex-1 ${showAppHeader ? 'pt-16 sm:pt-20' : ''}`}>
         <Routes>
           {/* Public multipage marketing website (shares MarketingLayout: its
               own header + footer). All copy lives under src/website. */}

@@ -18,7 +18,8 @@ export function MarketingLayout() {
   return (
     <>
       <MarketingHeader nav={c.nav} />
-      <div className="relative isolate">
+      {/* pt offsets the fixed header (h-16 sm:h-20) so content starts below it. */}
+      <div className="relative isolate pt-16 sm:pt-20">
         <Outlet />
         <MarketingFooter copy={c.footer} />
       </div>
