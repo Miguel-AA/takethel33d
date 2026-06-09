@@ -100,7 +100,7 @@ export function RafflePanel() {
               {lastResult.emailSent ? (
                 <span className="text-emerald-700">✓ {t('raffle.winner.emailSent')}</span>
               ) : (
-                <span className="text-amber-700">⚠ {t('raffle.winner.emailFailed')}</span>
+                <span className="text-accent-200">! {t('raffle.winner.emailFailed')}</span>
               )}
             </div>
           )}

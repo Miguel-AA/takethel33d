@@ -301,10 +301,10 @@ function EnvelopeIllustration({ className }: { className?: string }) {
   return (
     <svg viewBox="0 0 120 90" className={className} aria-hidden="true">
       <rect x="20" y="22" width="80" height="54" rx="6" fill="#09090b" stroke="#ffffff" strokeOpacity="0.18" />
-      <path d="M20 28 L 60 56 L 100 28" fill="none" stroke="#e11d2e" strokeWidth="2" />
+      <path d="M20 28 L 60 56 L 100 28" fill="none" stroke="#38bdf8" strokeWidth="2" />
       <rect x="28" y="14" width="64" height="40" rx="4" fill="#151519" stroke="#3f3f46" />
-      <path d="M34 24 h 52 M34 32 h 40 M34 40 h 30" stroke="#fb7185" strokeWidth="2" strokeLinecap="round" />
-      <circle cx="92" cy="68" r="10" fill="#e11d2e" />
+      <path d="M34 24 h 52 M34 32 h 40 M34 40 h 30" stroke="#67e8f9" strokeWidth="2" strokeLinecap="round" />
+      <circle cx="92" cy="68" r="10" fill="#2563eb" />
       <path d="M87 68 l 4 4 l 7 -8" fill="none" stroke="#ffffff" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
     </svg>
   );

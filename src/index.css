@@ -12,9 +12,9 @@
     @apply bg-black text-slate-100 antialiased font-sans;
     background-image:
       linear-gradient(112deg, rgba(255, 255, 255, 0.13) 0%, transparent 12%, transparent 62%, rgba(255, 255, 255, 0.07) 69%, transparent 76%),
-      linear-gradient(138deg, rgba(229, 9, 42, 0.42) 0%, transparent 16%, transparent 82%, rgba(229, 9, 42, 0.26) 100%),
-      url('/luxury-glass-bg.png'),
-      linear-gradient(135deg, #030303 0%, #0a0a0d 46%, #130207 100%);
+      linear-gradient(138deg, rgba(37, 99, 235, 0.46) 0%, transparent 18%, transparent 82%, rgba(6, 182, 212, 0.3) 100%),
+      url('/trust-glass-bg.svg'),
+      linear-gradient(135deg, #020617 0%, #071426 46%, #020617 100%);
     background-position: center;
     background-size: cover;
     background-attachment: fixed;
@@ -26,7 +26,7 @@
     pointer-events: none;
     background:
       linear-gradient(100deg, transparent 0 34%, rgba(255, 255, 255, 0.09) 35%, transparent 39%),
-      linear-gradient(116deg, transparent 0 64%, rgba(225, 29, 46, 0.16) 65%, transparent 71%);
+      linear-gradient(116deg, transparent 0 64%, rgba(56, 189, 248, 0.18) 65%, transparent 71%);
     mix-blend-mode: screen;
     opacity: 0.58;
   }
@@ -72,7 +72,7 @@
     @apply inline-flex items-center gap-2 rounded-full border border-brand-400/30 bg-brand-500/10 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-brand-100 shadow-sm backdrop-blur-xl;
   }
 
-  /* Decorative yellow underline that sits under a heading */
+  /* Decorative blue underline that sits under a heading */
   .accent-underline {
     @apply relative inline-block;
   }
@@ -136,13 +136,13 @@
 }
 
 .premium-app .bg-brand-50 {
-  background-color: rgba(225, 29, 46, 0.12);
+  background-color: rgba(37, 99, 235, 0.12);
 }
 
 .premium-app .text-brand-700,
 .premium-app .text-brand-800,
 .premium-app .text-brand-900 {
-  color: #fecdd3;
+  color: #bfdbfe;
 }
 
 /* Subtle floating sparkles around the participant number */

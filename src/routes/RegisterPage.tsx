@@ -1,6 +1,5 @@
 import { useTranslation } from '../i18n/I18nProvider';
 import { JotformEmbed } from '../components/JotformEmbed';
-import { Sparkle } from '../components/decorations';
 
 export function RegisterPage() {
   const { t } = useTranslation();
@@ -9,7 +8,7 @@ export function RegisterPage() {
       <div className="relative mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:py-12">
         <header className="max-w-3xl">
           <div className="premium-kicker">
-            <Sparkle className="h-3.5 w-3.5 text-brand-300" />
+            <BadgeCheckIcon />
             {t('register.badge')}
           </div>
           <h1 className="mt-5 max-w-4xl text-4xl font-bold leading-tight text-white sm:text-5xl lg:text-6xl">
@@ -21,6 +20,11 @@ export function RegisterPage() {
           <p className="mt-5 max-w-2xl text-lg leading-8 text-slate-300">
             {t('register.subtitle')}
           </p>
+          <div className="mt-5 flex flex-wrap gap-2">
+            <TrustChip label={t('register.trust.secure')} />
+            <TrustChip label={t('register.trust.clear')} />
+            <TrustChip label={t('register.trust.followup')} />
+          </div>
         </header>
 
         <div className="mt-8 grid items-stretch gap-4 lg:grid-cols-[minmax(0,1.45fr)_minmax(340px,0.8fr)]">
@@ -175,12 +179,32 @@ function IpadIllustration({ className }: { className?: string }) {
   return (
     <svg viewBox="0 0 120 90" className={className} aria-hidden="true">
       <rect x="22" y="6" width="76" height="62" rx="6" fill="#09090b" stroke="#ffffff" strokeOpacity="0.18" />
-      <rect x="26" y="10" width="68" height="54" rx="3" fill="#160307" />
-      <path d="M28 52 C 46 24 70 20 92 34" fill="none" stroke="#e11d2e" strokeWidth="5" strokeLinecap="round" opacity="0.8" />
+      <rect x="26" y="10" width="68" height="54" rx="3" fill="#071426" />
+      <path d="M28 52 C 46 24 70 20 92 34" fill="none" stroke="#38bdf8" strokeWidth="5" strokeLinecap="round" opacity="0.85" />
       <path d="M34 18 h 42" stroke="#ffffff" strokeOpacity="0.42" strokeWidth="2" strokeLinecap="round" />
-      <circle cx="86" cy="20" r="3" fill="#fb7185" />
+      <circle cx="86" cy="20" r="3" fill="#67e8f9" />
       <rect x="14" y="68" width="92" height="6" rx="3" fill="#27272a" />
       <rect x="22" y="74" width="76" height="3" rx="1.5" fill="#52525b" />
+    </svg>
+  );
+}
+
+function TrustChip({ label }: { label: string }) {
+  return (
+    <div className="inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/10 px-3 py-1.5 text-xs font-semibold text-slate-100 shadow-sm backdrop-blur-xl">
+      <svg viewBox="0 0 24 24" className="h-3.5 w-3.5 text-accent-300" fill="none" stroke="currentColor" strokeWidth="2.4">
+        <path d="M20 7 10 17l-5-5" strokeLinecap="round" strokeLinejoin="round" />
+      </svg>
+      {label}
+    </div>
+  );
+}
+
+function BadgeCheckIcon() {
+  return (
+    <svg viewBox="0 0 24 24" className="h-3.5 w-3.5 text-accent-300" fill="none" stroke="currentColor" strokeWidth="2.4">
+      <path d="M12 3 5 6v5c0 4.5 3 7.8 7 10 4-2.2 7-5.5 7-10V6l-7-3Z" strokeLinejoin="round" />
+      <path d="m9 12 2 2 4-5" strokeLinecap="round" strokeLinejoin="round" />
     </svg>
   );
 }

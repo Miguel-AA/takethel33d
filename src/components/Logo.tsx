@@ -18,10 +18,10 @@ export function Logo({
       {showText && (
         <span className="flex min-w-0 flex-col leading-tight">
           <span className="truncate text-base font-bold text-white sm:text-lg">
-            Take the L33d
+            TAKE THE L33D
           </span>
           <span className="hidden text-[0.68rem] font-semibold uppercase tracking-wide text-brand-200 sm:block">
-            Premium Leads
+            Trusted Leads
           </span>
         </span>
       )}

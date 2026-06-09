@@ -85,8 +85,8 @@ export function JotformEmbed() {
 
   const title =
     locale === 'en'
-      ? 'Take the L33d Premium Lead Form'
-      : 'Formulario premium de leads - Take the L33d';
+      ? 'TAKE THE L33D Trusted Lead Form'
+      : 'Formulario confiable de leads - TAKE THE L33D';
 
   return <JotformIframe formId={formId} title={title} />;
 }
