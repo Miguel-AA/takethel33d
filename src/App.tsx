@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import {
   BrowserRouter,
   Navigate,
@@ -39,36 +39,66 @@ const MARKETING_PATHS = new Set([
   '/contact',
 ]);
 
-function AppLayout() {
-  const location = useLocation();
-  const showAppHeader = !MARKETING_PATHS.has(location.pathname);
+// App-wide video background (glass comes from the cards). On devices that block
+// muted autoplay — most commonly iOS Low Power Mode — Safari shows a native
+// play-button placeholder. We detect the blocked play() promise and swap the
+// <video> for a static poster frame so the background stays clean (no play glyph).
+function VideoBackground() {
+  const [autoplayBlocked, setAutoplayBlocked] = useState(false);
+
+  const attach = useCallback((el: HTMLVideoElement | null) => {
+    if (!el) return;
+    // Set the muted *property* (not just the attribute) — React doesn't always
+    // reflect `muted` to the DOM property, and browsers require it for autoplay.
+    el.muted = true;
+    el.playbackRate = 1.5;
+    const attempt = el.play();
+    if (attempt && typeof attempt.then === 'function') {
+      attempt.catch(() => setAutoplayBlocked(true));
+    }
+  }, []);
 
   return (
-    <div className="premium-app flex min-h-full flex-col">
-      {/* App-wide video background (no overlay — glass comes from the cards). */}
-      <div
-        className="pointer-events-none fixed inset-0 -z-10 overflow-hidden"
-        aria-hidden="true"
-      >
+    <div
+      className="pointer-events-none fixed inset-0 -z-10 overflow-hidden"
+      aria-hidden="true"
+    >
+      {autoplayBlocked ? (
+        <img
+          src="/taketheleedbg-poster.jpg"
+          alt=""
+          className="h-full w-full object-cover"
+        />
+      ) : (
         <video
-          ref={(el) => {
-            if (el) el.playbackRate = 1.5;
-          }}
-          onLoadedMetadata={(e) => {
-            e.currentTarget.playbackRate = 1.5;
-          }}
+          ref={attach}
+          poster="/taketheleedbg-poster.jpg"
           className="h-full w-full object-cover"
           autoPlay
           muted
           loop
           playsInline
           preload="auto"
+          onLoadedMetadata={(e) => {
+            e.currentTarget.playbackRate = 1.5;
+          }}
         >
           <source src="/taketheleedbg.mp4" type="video/mp4" />
         </video>
-        {/* Very light frosted-glass wall over the video — faint blur + tint. */}
-        <div className="absolute inset-0 bg-white/5 backdrop-blur-[2px]" />
-      </div>
+      )}
+      {/* Very light frosted-glass wall over the video — faint blur + tint. */}
+      <div className="absolute inset-0 bg-white/5 backdrop-blur-[2px]" />
+    </div>
+  );
+}
+
+function AppLayout() {
+  const location = useLocation();
+  const showAppHeader = !MARKETING_PATHS.has(location.pathname);
+
+  return (
+    <div className="premium-app flex min-h-full flex-col">
+      <VideoBackground />
 
       {showAppHeader && <Header />}
 
