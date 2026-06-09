@@ -20,7 +20,7 @@ export function Hero({ copy }: { copy: LandingCopy['hero'] }) {
     >
       {/* Centered copy, wrapped in the same frosted glass container as the app
           register hero and the interior PageHero. */}
-      <div className="glass-panel-strong mx-auto flex max-w-4xl flex-col items-center px-6 py-12 sm:px-12 sm:py-16">
+      <div className="glass-panel-strong mx-auto flex flex-col items-center px-6 py-12 sm:px-12 sm:py-16">
         <span className="premium-kicker">{copy.badge}</span>
         <h1
           id="hero-title"
@@ -51,7 +51,7 @@ export function Hero({ copy }: { copy: LandingCopy['hero'] }) {
       </div>
 
       {/* Lead Pipeline panel — pure presentation, app glass language, demo data. */}
-      <div className="relative mx-auto mt-14 max-w-3xl">
+      <div className="relative mx-auto mt-14">
         <div
           className="card-lg relative z-10 p-5 text-left sm:p-6"
           role="img"

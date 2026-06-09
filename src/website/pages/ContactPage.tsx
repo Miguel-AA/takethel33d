@@ -34,8 +34,9 @@ export function ContactPage() {
         aria-labelledby="contact-page-title"
         className="section-x py-12 lg:py-16"
       >
-        {/* Narrow, readable column centered within the shared section gutters. */}
-        <div className="mx-auto max-w-2xl">
+        {/* Full-bleed column within the shared section gutters — matches the
+            home hero / CTA band width. */}
+        <div className="mx-auto">
           {submitted ? (
             <div className="card p-7 text-center sm:p-10">
               <span className="mx-auto grid h-14 w-14 place-items-center rounded-full border border-brand-400/30 bg-brand-500/10 text-brand-600">
