@@ -11,7 +11,7 @@
 # can also be configured from the Cloudflare dashboard; this file is the
 # source of truth for local development via `wrangler pages dev`.
 
-name = "gifted-grads-events"
+name = "takethel33d"
 compatibility_date = "2025-01-01"
 compatibility_flags = ["nodejs_compat"]
 pages_build_output_dir = "dist"
