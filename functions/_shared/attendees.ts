@@ -1,4 +1,4 @@
-import type { RegisterRequest, Attendee } from '@shared/types';
+import type { RegisterRequest, Attendee } from '../../shared/types';
 import { rowToAttendeeIso, type AttendeeRow } from './db';
 
 export type InsertAttendeeResult =

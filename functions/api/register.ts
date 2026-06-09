@@ -5,7 +5,7 @@
 // API client. It shares the same insertAttendee() helper that the webhook
 // uses, so participant-number assignment is consistent.
 
-import { registerSchema } from '@shared/schemas';
+import { registerSchema } from '../../shared/schemas';
 import { error, json } from '../_shared/responses';
 import { insertAttendee } from '../_shared/attendees';
 import { organizerEmail, sendResendEmail } from '../_shared/emails';

@@ -2,7 +2,7 @@ import { json } from '../_shared/responses';
 import type {
   InsuranceTypeBreakdown,
   Metrics,
-} from '@shared/types';
+} from '../../shared/types';
 
 type Env = { DB: D1Database };
 

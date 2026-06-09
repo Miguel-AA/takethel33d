@@ -1,4 +1,4 @@
-import type { ApiErrorCode } from '@shared/types';
+import type { ApiErrorCode } from '../../shared/types';
 
 export function json(status: number, body: unknown, headers?: HeadersInit): Response {
   return new Response(JSON.stringify(body), {

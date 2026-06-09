@@ -1,5 +1,5 @@
-import { registerSchema } from '@shared/schemas';
-import type { InsuranceType, RegisterRequest } from '@shared/types';
+import { registerSchema } from '../../shared/schemas';
+import type { InsuranceType, RegisterRequest } from '../../shared/types';
 
 /**
  * Field aliases used to find each form field inside Jotform's `rawRequest`

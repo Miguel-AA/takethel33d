@@ -15,6 +15,7 @@ export function BenefitsPage() {
         id="benefits-page-title"
         kicker={p.hero.kicker}
         title={p.hero.title}
+        titleEm={p.hero.titleEm}
         subtitle={p.hero.subtitle}
       />
 

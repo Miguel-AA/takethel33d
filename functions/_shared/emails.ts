@@ -1,4 +1,4 @@
-import type { Attendee, InsuranceType } from '@shared/types';
+import type { Attendee, InsuranceType } from '../../shared/types';
 
 interface SendArgs {
   apiKey: string;

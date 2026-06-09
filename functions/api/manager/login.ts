@@ -1,4 +1,4 @@
-import { loginSchema } from '@shared/schemas';
+import { loginSchema } from '../../../shared/schemas';
 import { error, json } from '../../_shared/responses';
 import { TOKEN_TTL_MS, timingSafeEqual } from '../../_shared/auth';
 import { sqliteToIso } from '../../_shared/db';
