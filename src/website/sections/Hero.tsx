@@ -2,7 +2,6 @@ import { Link } from 'react-router-dom';
 import clsx from 'clsx';
 import type { LandingCopy } from '../copy';
 import { ArrowRightIcon, CheckIcon } from '../icons';
-import { HeroGlow } from '../components/HeroGlow';
 
 // Status pill palette, applied by row index so it stays locale-independent.
 const STATUS_STYLES = [
@@ -19,9 +18,6 @@ export function Hero({ copy }: { copy: LandingCopy['hero'] }) {
       aria-labelledby="hero-title"
       className="section-x relative pb-16 pt-14 text-center lg:pb-24 lg:pt-20"
     >
-      {/* Subtle, controlled blue glow — floating accents behind the content. */}
-      <HeroGlow />
-
       {/* Centered copy */}
       <div className="mx-auto flex max-w-3xl flex-col items-center">
         <span className="premium-kicker">{copy.badge}</span>

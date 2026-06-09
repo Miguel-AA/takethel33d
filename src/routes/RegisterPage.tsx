@@ -1,12 +1,10 @@
 import { useTranslation } from '../i18n/I18nProvider';
 import { JotformEmbed } from '../components/JotformEmbed';
-import { HeroGlow } from '../website/components/HeroGlow';
 
 export function RegisterPage() {
   const { t } = useTranslation();
   return (
     <div className="relative isolate overflow-hidden">
-      <HeroGlow />
       <div className="relative mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:py-12">
         <header className="glass-panel-strong flex w-full flex-col items-center px-6 py-12 text-center sm:px-12 sm:py-16">
           <div className="premium-kicker">

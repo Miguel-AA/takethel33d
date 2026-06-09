@@ -2,7 +2,6 @@
 // premium kicker, large gradient title, lead subtitle, and the shared blue
 // glow — so every page opens with the same look. The home-only content blocks
 // (CTA buttons, the live mockup) intentionally stay on the home Hero.
-import { HeroGlow } from './HeroGlow';
 
 export function PageHero({
   id,
@@ -18,9 +17,6 @@ export function PageHero({
 }) {
   return (
     <section className="section-x relative isolate pb-12 pt-14 text-center lg:pb-16 lg:pt-20">
-      {/* Same controlled blue glow used behind the home hero. */}
-      <HeroGlow />
-
       <div className="mx-auto flex max-w-3xl flex-col items-center">
         <span className="premium-kicker">{kicker}</span>
         <h1

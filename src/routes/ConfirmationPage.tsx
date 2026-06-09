@@ -4,7 +4,6 @@ import { useQuery } from '@tanstack/react-query';
 import { useTranslation } from '../i18n/I18nProvider';
 import { formatDateTime, formatParticipantNumber } from '../lib/format';
 import { Spinner } from '../components/Spinner';
-import { HeroGlow } from '../website/components/HeroGlow';
 import { ApiError, api } from '../lib/api';
 import type { Attendee, InsuranceType } from '@shared/types';
 
@@ -76,7 +75,6 @@ export function ConfirmationPage() {
 
   return (
     <div className="relative isolate overflow-hidden">
-      <HeroGlow />
       <div className="relative mx-auto max-w-7xl px-4 py-10 sm:px-6 lg:py-14">
         {displayed ? (
           <Loaded participantNumber={displayed.participantNumber} attendee={displayed.attendee} />
