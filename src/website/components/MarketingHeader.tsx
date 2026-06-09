@@ -4,6 +4,7 @@
 // "Events" links into the existing app at /events — it is the app entry point,
 // NOT a marketing section, so it's rendered as a distinct secondary button.
 import { useEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { Link, NavLink, useLocation } from 'react-router-dom';
 import clsx from 'clsx';
 import { Logo } from '../../components/Logo';
@@ -77,6 +78,7 @@ export function MarketingHeader({ nav }: { nav: LandingCopy['nav'] }) {
     );
 
   return (
+    <>
     <header className="fixed inset-x-0 top-0 z-40 border-b border-white/40 bg-white/55 backdrop-blur-2xl supports-[backdrop-filter]:bg-white/40">
       <div className="section-x flex h-16 items-center justify-between gap-3 sm:h-20">
         <Link
@@ -127,10 +129,15 @@ export function MarketingHeader({ nav }: { nav: LandingCopy['nav'] }) {
           </button>
         </div>
       </div>
+    </header>
 
-      {open && (
+      {/* Mobile menu rendered via a portal to <body>: the header has
+          backdrop-blur, which would otherwise make this fixed panel size to
+          the header box instead of the viewport (collapsing the link list). */}
+      {open &&
+        createPortal(
         <div
-          className="animate-menu-panel fixed inset-0 z-50 flex flex-col bg-gradient-to-b from-white via-white to-slate-100 lg:hidden"
+          className="animate-menu-panel fixed inset-0 z-[60] flex flex-col bg-gradient-to-b from-white via-white to-slate-100 lg:hidden"
           role="dialog"
           aria-modal="true"
           aria-label={nav.menu}
@@ -211,8 +218,9 @@ export function MarketingHeader({ nav }: { nav: LandingCopy['nav'] }) {
               {nav.events}
             </Link>
           </div>
-        </div>
-      )}
-    </header>
+        </div>,
+          document.body,
+        )}
+    </>
   );
 }
