@@ -129,6 +129,11 @@ interface PageHero {
   /** Phrase within `title` rendered in the blue accent gradient (exact substring of `title`). */
   titleEm: string;
   subtitle: string;
+  /** Optional CTA buttons + proof line, mirroring the home hero. The page
+      component supplies the link targets; copy supplies the labels. */
+  ctaPrimary?: string;
+  ctaSecondary?: string;
+  proof?: string;
 }
 /** Labels for a reusable closing CTA band; the page supplies the targets. */
 interface CtaBand {
@@ -413,6 +418,9 @@ export const landingCopy: Record<LandingLocale, LandingCopy> = {
           titleEm: 'oportunidades',
           subtitle:
             'Un flujo constante de leads relevantes ayuda a tu negocio a crecer con menos esfuerzo manual y más foco en cerrar.',
+          ctaPrimary: 'Quiero más leads',
+          ctaSecondary: 'Ver cómo funciona',
+          proof: 'Más reservas, consultas y ventas a partir del interés que ya existe.',
         },
         items: [
           {
@@ -469,6 +477,9 @@ export const landingCopy: Record<LandingLocale, LandingCopy> = {
           title: 'De objetivo a cliente, paso a paso',
           titleEm: 'cliente',
           subtitle: 'Un proceso simple y transparente para convertir interés en oportunidades accionables.',
+          ctaPrimary: 'Empezar a recibir leads',
+          ctaSecondary: 'Ver planes',
+          proof: 'Un proceso claro, transparente y diseñado para escalar contigo.',
         },
         steps: [
           {
@@ -511,6 +522,9 @@ export const landingCopy: Record<LandingLocale, LandingCopy> = {
           titleEm: 'Leads',
           subtitle:
             'Si tu negocio necesita más clientes, reservas o consultas, un flujo de leads relevante puede ayudar.',
+          ctaPrimary: 'Quiero leads para mi negocio',
+          ctaSecondary: 'Ver beneficios',
+          proof: 'Leads relevantes para tu tipo de negocio.',
         },
         items: [
           {
@@ -568,6 +582,9 @@ export const landingCopy: Record<LandingLocale, LandingCopy> = {
           titleEm: 'crecer contigo',
           subtitle:
             'Elige un punto de partida y escala a medida que crece tu negocio. Precios y condiciones editables.',
+          ctaPrimary: 'Hablar con el equipo',
+          ctaSecondary: 'Ver cómo funciona',
+          proof: 'Planes simples que crecen con tu negocio.',
         },
         note: 'Los precios mostrados son ejemplos. Contáctanos para una cotización a la medida de tu negocio.',
         plans: [
@@ -861,6 +878,9 @@ export const landingCopy: Record<LandingLocale, LandingCopy> = {
           titleEm: 'opportunities',
           subtitle:
             'A steady flow of relevant leads helps your business grow with less manual effort and more focus on closing.',
+          ctaPrimary: 'Get more leads',
+          ctaSecondary: 'See how it works',
+          proof: 'More bookings, inquiries and sales from the interest that already exists.',
         },
         items: [
           {
@@ -917,6 +937,9 @@ export const landingCopy: Record<LandingLocale, LandingCopy> = {
           title: 'From goal to customer, step by step',
           titleEm: 'customer',
           subtitle: 'A simple, transparent process to turn interest into actionable opportunities.',
+          ctaPrimary: 'Start getting leads',
+          ctaSecondary: 'See pricing',
+          proof: 'A clear, transparent process built to scale with you.',
         },
         steps: [
           {
@@ -959,6 +982,9 @@ export const landingCopy: Record<LandingLocale, LandingCopy> = {
           titleEm: 'Leads',
           subtitle:
             'If your business needs more customers, bookings or inquiries, a flow of relevant leads can help.',
+          ctaPrimary: 'Get leads for my business',
+          ctaSecondary: 'See the benefits',
+          proof: 'Relevant leads matched to your kind of business.',
         },
         items: [
           {
@@ -1015,6 +1041,9 @@ export const landingCopy: Record<LandingLocale, LandingCopy> = {
           title: 'Plans built to grow with you',
           titleEm: 'grow with you',
           subtitle: 'Pick a starting point and scale as your business grows. Prices and terms are editable.',
+          ctaPrimary: 'Talk to us',
+          ctaSecondary: 'See how it works',
+          proof: 'Simple plans that scale as your business grows.',
         },
         note: 'Prices shown are examples. Contact us for a quote tailored to your business.',
         plans: [

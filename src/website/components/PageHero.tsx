@@ -2,8 +2,10 @@
 // premium kicker, large two-tone title (black with a blue-gradient emphasis),
 // and lead subtitle — wrapped in the same frosted glass-panel-strong container
 // used by the home Hero and the app register hero, so every page opens with the
-// same look. The home-only content blocks (CTA buttons, the live mockup)
-// intentionally stay on the home Hero.
+// same look. Pages may also pass per-page CTA buttons and a proof line, which
+// render exactly like the home Hero's; the live mockup stays home-only.
+import { Link } from 'react-router-dom';
+import { ArrowRightIcon, CheckIcon } from '../icons';
 
 export function PageHero({
   id,
@@ -11,6 +13,11 @@ export function PageHero({
   title,
   titleEm,
   subtitle,
+  primaryLabel,
+  primaryTo,
+  secondaryLabel,
+  secondaryTo,
+  proof,
 }: {
   /** id applied to the <h1> so the following section can reference it via aria-labelledby */
   id: string;
@@ -19,6 +26,14 @@ export function PageHero({
   /** Phrase within `title` shown in the blue gradient (must be an exact substring of `title`). */
   titleEm?: string;
   subtitle?: string;
+  /** Primary CTA: both label and target must be set for the button to render. */
+  primaryLabel?: string;
+  primaryTo?: string;
+  /** Secondary CTA: both label and target must be set for the button to render. */
+  secondaryLabel?: string;
+  secondaryTo?: string;
+  /** Short reassurance line shown under the buttons, with a check icon. */
+  proof?: string;
 }) {
   return (
     <section className="section-x relative isolate pb-12 pt-14 lg:pb-16 lg:pt-20">
@@ -32,6 +47,27 @@ export function PageHero({
         </h1>
         {subtitle && (
           <p className="mt-6 max-w-2xl text-lg leading-8 text-slate-700">{subtitle}</p>
+        )}
+
+        {primaryLabel && primaryTo && (
+          <div className="mt-8 flex w-full flex-col justify-center gap-3 sm:w-auto sm:flex-row">
+            <Link to={primaryTo} className="btn-primary px-7 py-3 text-base">
+              {primaryLabel}
+              <ArrowRightIcon className="h-5 w-5" />
+            </Link>
+            {secondaryLabel && secondaryTo && (
+              <Link to={secondaryTo} className="btn-secondary px-7 py-3 text-base">
+                {secondaryLabel}
+              </Link>
+            )}
+          </div>
+        )}
+
+        {proof && (
+          <p className="mt-5 flex items-center justify-center gap-2 text-sm font-medium text-slate-600">
+            <CheckIcon className="h-4 w-4 text-brand-600" />
+            {proof}
+          </p>
         )}
       </div>
     </section>

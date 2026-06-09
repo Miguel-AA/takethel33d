@@ -16,6 +16,11 @@ export function HowItWorksPage() {
         title={p.hero.title}
         titleEm={p.hero.titleEm}
         subtitle={p.hero.subtitle}
+        primaryLabel={p.hero.ctaPrimary}
+        primaryTo="/contact"
+        secondaryLabel={p.hero.ctaSecondary}
+        secondaryTo="/pricing"
+        proof={p.hero.proof}
       />
 
       <section

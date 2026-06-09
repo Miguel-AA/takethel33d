@@ -16,6 +16,11 @@ export function IndustriesPage() {
         title={p.hero.title}
         titleEm={p.hero.titleEm}
         subtitle={p.hero.subtitle}
+        primaryLabel={p.hero.ctaPrimary}
+        primaryTo="/contact"
+        secondaryLabel={p.hero.ctaSecondary}
+        secondaryTo="/benefits"
+        proof={p.hero.proof}
       />
 
       <section
