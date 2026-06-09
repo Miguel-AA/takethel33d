@@ -14,7 +14,7 @@ export function LanguageToggle() {
           className={clsx(
             'px-2.5 py-1 rounded-md uppercase tracking-wide transition',
             locale === opt
-              ? 'bg-brand-600 text-white shadow-sm'
+              ? 'bg-gradient-to-r from-brand-600 to-brand-500 text-white shadow-sm'
               : 'text-slate-500 hover:bg-slate-900/5 hover:text-slate-900',
           )}
           aria-pressed={locale === opt}

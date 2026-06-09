@@ -118,7 +118,7 @@ function JotformIframe({ formId, title }: { formId: string; title: string }) {
   }, [formId]);
 
   return (
-    <div className="relative overflow-hidden rounded-lg border border-white/35 bg-white/45 backdrop-blur-2xl">
+    <div className="relative overflow-hidden rounded-lg border border-white/30 bg-white/40 backdrop-blur-2xl">
       {status === 'loading' && (
         <div className="pointer-events-none absolute inset-x-0 top-0 z-10 flex items-center justify-center gap-2 bg-white/90 py-3 text-xs text-slate-600 backdrop-blur-xl">
           <Spinner /> <span>Cargando formulario...</span>

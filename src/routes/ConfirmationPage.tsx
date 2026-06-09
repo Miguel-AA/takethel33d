@@ -4,6 +4,7 @@ import { useQuery } from '@tanstack/react-query';
 import { useTranslation } from '../i18n/I18nProvider';
 import { formatDateTime, formatParticipantNumber } from '../lib/format';
 import { Spinner } from '../components/Spinner';
+import { HeroGlow } from '../website/components/HeroGlow';
 import { ApiError, api } from '../lib/api';
 import type { Attendee, InsuranceType } from '@shared/types';
 
@@ -70,11 +71,12 @@ export function ConfirmationPage() {
   }, [eagerNumber, state.attendee, lookup.data]);
 
   if (!displayed && !submissionId) {
-    return <Navigate to="/" replace />;
+    return <Navigate to="/events" replace />;
   }
 
   return (
-    <div className="relative overflow-hidden">
+    <div className="relative isolate overflow-hidden">
+      <HeroGlow />
       <div className="relative mx-auto max-w-7xl px-4 py-10 sm:px-6 lg:py-14">
         {displayed ? (
           <Loaded participantNumber={displayed.participantNumber} attendee={displayed.attendee} />
@@ -107,7 +109,7 @@ function Timeout() {
           {t('confirmation.timeout.title')}
         </h1>
         <p className="mt-2 text-slate-600">{t('confirmation.timeout.body')}</p>
-        <Link to="/" className="btn-secondary mt-6 inline-flex">
+        <Link to="/events" className="btn-secondary mt-6 inline-flex">
           {t('confirmation.backHome')}
         </Link>
       </div>
@@ -217,7 +219,7 @@ function Loaded({
       </div>
 
       <div className="mt-8">
-        <Link to="/" className="btn-secondary w-full py-3 text-base sm:w-auto">
+        <Link to="/events" className="btn-secondary w-full py-3 text-base sm:w-auto">
           <HomeIcon /> {t('confirmation.backHome')}
         </Link>
       </div>

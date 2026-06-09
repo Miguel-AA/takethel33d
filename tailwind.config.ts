@@ -19,18 +19,6 @@ const config: Config = {
           900: '#152c63',
         },
         // Silver — the metallic gray from the icon, used for borders and accents.
-        accent: {
-          50: '#f6f7f9',
-          100: '#eceef1',
-          200: '#dde0e4',
-          300: '#c9ced4',
-          400: '#aab1ba',
-          500: '#8d949d',
-          600: '#71787f',
-          700: '#565c63',
-          800: '#3e434a',
-          900: '#2a2e33',
-        },
         silver: {
           50: '#f6f7f9',
           100: '#eceef1',
@@ -54,7 +42,7 @@ const config: Config = {
       },
       backgroundImage: {
         'underline-accent':
-          "url(\"data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 200 12' preserveAspectRatio='none'><path d='M2 8 Q 50 0 100 6 T 198 8' stroke='%231747c4' stroke-width='4' fill='none' stroke-linecap='round'/></svg>\")",
+          "url(\"data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 200 12' preserveAspectRatio='none'><path d='M2 8 Q 50 0 100 6 T 198 8' stroke='%23aab1ba' stroke-width='4' fill='none' stroke-linecap='round'/></svg>\")",
       },
     },
   },

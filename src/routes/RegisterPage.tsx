@@ -1,10 +1,12 @@
 import { useTranslation } from '../i18n/I18nProvider';
 import { JotformEmbed } from '../components/JotformEmbed';
+import { HeroGlow } from '../website/components/HeroGlow';
 
 export function RegisterPage() {
   const { t } = useTranslation();
   return (
     <div className="relative isolate overflow-hidden">
+      <HeroGlow />
       <div className="relative mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:py-12">
         <header className="glass-panel-strong flex w-full flex-col items-center px-6 py-12 text-center sm:px-12 sm:py-16">
           <div className="premium-kicker">
@@ -62,7 +64,7 @@ export function RegisterPage() {
             <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-slate-900/10 to-transparent" />
             <div className="absolute inset-y-0 right-0 w-px bg-gradient-to-b from-transparent via-brand-400/40 to-transparent" />
             <div className="relative flex h-full flex-col">
-              <div className="rounded-lg border border-white/35 bg-white/30 p-5 shadow-sm backdrop-blur-2xl">
+              <div className="rounded-lg border border-white/30 bg-white/25 p-5 shadow-sm backdrop-blur-2xl">
                 <div className="flex items-start justify-between gap-4">
                   <div>
                     <p className="text-sm font-medium text-brand-700">
@@ -94,7 +96,7 @@ export function RegisterPage() {
               </div>
 
               <div className="mt-6">
-                <div className="rounded-lg border border-white/35 bg-white/30 p-4 text-sm leading-6 text-slate-700 backdrop-blur-2xl">
+                <div className="rounded-lg border border-white/30 bg-white/25 p-4 text-sm leading-6 text-slate-700 backdrop-blur-2xl">
                   {t('register.sidebar.note')}
                 </div>
               </div>

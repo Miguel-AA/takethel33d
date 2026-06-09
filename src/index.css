@@ -18,15 +18,23 @@
 }
 
 @layer components {
+  /* Full-bleed horizontal container for the marketing site: each section spans
+     the full viewport width with comfortable, responsive gutters, while its
+     inner content (headings, grids) stays centered. Tune the gutters here to
+     adjust every section at once. */
+  .section-x {
+    @apply w-full px-4 sm:px-6 lg:px-10 xl:px-16 2xl:px-24;
+  }
+
   /* Buttons */
   .btn {
     @apply inline-flex items-center justify-center gap-2 rounded-lg px-5 py-2.5 text-sm font-semibold transition disabled:cursor-not-allowed disabled:opacity-60;
   }
   .btn-primary {
-    @apply btn bg-brand-600 text-white shadow-card hover:bg-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-300;
+    @apply btn bg-gradient-to-r from-brand-600 to-brand-500 text-white shadow-card hover:from-brand-500 hover:to-brand-400 focus:outline-none focus:ring-2 focus:ring-brand-300;
   }
   .btn-secondary {
-    @apply btn border border-white/40 bg-white/60 text-slate-800 shadow-sm backdrop-blur-xl hover:border-brand-400/60 hover:bg-white hover:text-brand-700 focus:outline-none focus:ring-2 focus:ring-brand-400/40;
+    @apply btn border border-brand-400/40 bg-gradient-to-r from-brand-100 to-brand-50 text-brand-700 shadow-sm backdrop-blur-xl hover:border-brand-500/60 hover:from-brand-200 hover:to-brand-100 hover:text-brand-800 focus:outline-none focus:ring-2 focus:ring-brand-400/40;
   }
   .btn-ghost {
     @apply btn text-slate-600 hover:bg-slate-900/5 hover:text-slate-900;
@@ -42,22 +50,22 @@
 
   /* Cards / white glass — translucent frosted surfaces over the video wall. */
   .card {
-    @apply rounded-lg border border-white/35 bg-white/35 shadow-card backdrop-blur-2xl;
+    @apply rounded-lg border border-white/30 bg-white/30 shadow-card backdrop-blur-2xl;
   }
   .card-lg {
-    @apply rounded-lg border border-white/35 bg-white/40 shadow-cardLg backdrop-blur-2xl;
+    @apply rounded-lg border border-white/30 bg-white/35 shadow-cardLg backdrop-blur-2xl;
   }
   .glass-panel {
-    @apply rounded-lg border border-white/35 bg-white/30 shadow-cardLg backdrop-blur-2xl;
+    @apply rounded-lg border border-white/30 bg-white/25 shadow-cardLg backdrop-blur-2xl;
   }
   .glass-panel-strong {
-    @apply rounded-lg border border-white/40 bg-white/40 shadow-cardLg backdrop-blur-2xl;
+    @apply rounded-lg border border-white/35 bg-white/35 shadow-cardLg backdrop-blur-2xl;
   }
   .premium-kicker {
     @apply inline-flex items-center gap-2 rounded-full border border-brand-500/20 bg-brand-500/10 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-brand-700 shadow-sm;
   }
 
-  /* Decorative blue underline that sits under a heading */
+  /* Decorative silver underline that sits under a heading */
   .accent-underline {
     @apply relative inline-block;
   }
