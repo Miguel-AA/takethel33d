@@ -116,3 +116,27 @@
 .spark {
   animation: floatSpark 2.4s ease-in-out infinite;
 }
+
+/* Mobile nav: panel drops in, each row fades/slides in with a stagger,
+   the dimming overlay fades. Respects reduced-motion. */
+@keyframes menuPanelIn {
+  from { opacity: 0; transform: translateY(-10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+@keyframes menuItemIn {
+  from { opacity: 0; transform: translateY(-8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+@keyframes menuOverlayIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+.animate-menu-panel { animation: menuPanelIn 0.22s cubic-bezier(0.16, 1, 0.3, 1); }
+.animate-menu-item { animation: menuItemIn 0.32s cubic-bezier(0.16, 1, 0.3, 1) backwards; }
+.animate-menu-overlay { animation: menuOverlayIn 0.22s ease-out; }
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-menu-panel,
+  .animate-menu-item,
+  .animate-menu-overlay { animation: none; }
+}
