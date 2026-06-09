@@ -129,30 +129,51 @@ export function MarketingHeader({ nav }: { nav: LandingCopy['nav'] }) {
       </div>
 
       {open && (
-        <>
-          {/* Dimming overlay — tap anywhere outside the links to close. */}
-          <button
-            type="button"
-            tabIndex={-1}
-            aria-hidden="true"
-            onClick={() => setOpen(false)}
-            className="animate-menu-overlay fixed inset-x-0 bottom-0 top-16 z-30 cursor-default bg-slate-900/20 backdrop-blur-sm sm:top-20 lg:hidden"
-          />
+        <div
+          className="animate-menu-panel fixed inset-0 z-50 flex flex-col bg-gradient-to-b from-white via-white to-slate-100 lg:hidden"
+          role="dialog"
+          aria-modal="true"
+          aria-label={nav.menu}
+        >
+          {/* Top bar mirrors the header so the logo/controls don't jump. */}
+          <div className="section-x flex h-16 shrink-0 items-center justify-between gap-3 border-b border-slate-200/70 sm:h-20">
+            <Link
+              to="/"
+              className="flex min-w-0 items-center"
+              aria-label="Take the L33d"
+              onClick={() => setOpen(false)}
+            >
+              <Logo showWordmark />
+            </Link>
+            <div className="flex items-center gap-2 sm:gap-3">
+              <LanguageToggle />
+              <button
+                type="button"
+                className="grid h-11 w-11 place-items-center rounded-xl border border-brand-500/30 bg-brand-500/10 text-brand-700 transition hover:bg-brand-500/20"
+                aria-label={nav.menu}
+                onClick={() => setOpen(false)}
+              >
+                <CloseGlyph />
+              </button>
+            </div>
+          </div>
+
+          {/* Scrollable links fill the screen; CTAs stay pinned at the bottom. */}
           <nav
             id="marketing-mobile-nav"
-            className="animate-menu-panel absolute inset-x-0 top-full z-40 border-t border-white/40 bg-white/85 shadow-cardLg backdrop-blur-2xl lg:hidden"
+            className="flex flex-1 flex-col overflow-y-auto"
             aria-label="Páginas del sitio"
           >
-            <ul className="section-x flex flex-col gap-1.5 py-4">
+            <ul className="section-x flex flex-col gap-2 py-5">
               {links.map((l, i) => (
                 <li key={l.to} className="animate-menu-item" style={{ animationDelay: `${i * 45}ms` }}>
                   <NavLink to={l.to} end={l.end} onClick={() => setOpen(false)} className={mobileLinkClass}>
                     {({ isActive }) => (
                       <>
-                        <span className="flex items-center gap-3">
+                        <span className="flex items-center gap-3.5">
                           <span
                             className={clsx(
-                              'grid h-9 w-9 shrink-0 place-items-center rounded-lg transition',
+                              'grid h-10 w-10 shrink-0 place-items-center rounded-xl transition',
                               isActive
                                 ? 'bg-white/25 text-white'
                                 : 'bg-brand-500/10 text-brand-600 group-hover:bg-brand-500/20',
@@ -175,21 +196,22 @@ export function MarketingHeader({ nav }: { nav: LandingCopy['nav'] }) {
                   </NavLink>
                 </li>
               ))}
-              <li
-                className="animate-menu-item mt-3 flex flex-col gap-2.5 border-t border-white/50 pt-4"
-                style={{ animationDelay: `${links.length * 45}ms` }}
-              >
-                <Link to="/contact" onClick={() => setOpen(false)} className="btn-primary px-4 py-3 text-base">
-                  {nav.getLeads}
-                  <ArrowRightIcon className="h-5 w-5" />
-                </Link>
-                <Link to="/events" onClick={() => setOpen(false)} className="btn-secondary px-4 py-3 text-base">
-                  {nav.events}
-                </Link>
-              </li>
             </ul>
           </nav>
-        </>
+
+          {/* Pinned action footer */}
+          <div
+            className="section-x flex shrink-0 flex-col gap-2.5 border-t border-slate-200/70 bg-white/60 pb-[max(1.25rem,env(safe-area-inset-bottom))] pt-4"
+          >
+            <Link to="/contact" onClick={() => setOpen(false)} className="btn-primary px-4 py-3.5 text-base">
+              {nav.getLeads}
+              <ArrowRightIcon className="h-5 w-5" />
+            </Link>
+            <Link to="/events" onClick={() => setOpen(false)} className="btn-secondary px-4 py-3.5 text-base">
+              {nav.events}
+            </Link>
+          </div>
+        </div>
       )}
     </header>
   );

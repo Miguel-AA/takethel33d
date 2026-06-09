@@ -1,6 +1,7 @@
 import type { LandingCopy } from '../copy';
 import { Icon } from '../icons';
 import { SectionHeading } from '../components/SectionHeading';
+import { Reveal } from '../components/Reveal';
 
 export function Features({ copy }: { copy: LandingCopy['features'] }) {
   return (
@@ -16,7 +17,7 @@ export function Features({ copy }: { copy: LandingCopy['features'] }) {
         subtitle={copy.subtitle}
       />
 
-      <ul className="mt-12 grid gap-5 sm:grid-cols-2">
+      <Reveal as="ul" stagger className="mt-12 grid gap-5 sm:grid-cols-2">
         {copy.items.map((item) => (
           <li key={item.title} className="card flex items-start gap-4 p-6">
             <span className="grid h-12 w-12 shrink-0 place-items-center rounded-lg border border-brand-400/30 bg-brand-500/10 text-brand-600">
@@ -28,7 +29,7 @@ export function Features({ copy }: { copy: LandingCopy['features'] }) {
             </div>
           </li>
         ))}
-      </ul>
+      </Reveal>
     </section>
   );
 }

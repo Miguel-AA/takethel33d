@@ -8,6 +8,7 @@ import { Link } from 'react-router-dom';
 import { useLandingCopy } from '../useLandingCopy';
 import { CheckIcon } from '../icons';
 import { PageHero } from '../components/PageHero';
+import { Reveal } from '../components/Reveal';
 
 export function ContactPage() {
   const p = useLandingCopy().pages.contact;
@@ -36,7 +37,7 @@ export function ContactPage() {
       >
         {/* Full-bleed column within the shared section gutters — matches the
             home hero / CTA band width. */}
-        <div className="mx-auto">
+        <Reveal className="mx-auto">
           {submitted ? (
             <div className="card p-7 text-center sm:p-10">
               <span className="mx-auto grid h-14 w-14 place-items-center rounded-full border border-brand-400/30 bg-brand-500/10 text-brand-600">
@@ -135,7 +136,7 @@ export function ContactPage() {
               {p.alt.cta}
             </Link>
           </p>
-        </div>
+        </Reveal>
       </section>
     </>
   );

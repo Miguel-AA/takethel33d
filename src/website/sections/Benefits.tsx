@@ -1,6 +1,7 @@
 import type { LandingCopy } from '../copy';
 import { Icon } from '../icons';
 import { SectionHeading } from '../components/SectionHeading';
+import { Reveal } from '../components/Reveal';
 
 export function Benefits({ copy }: { copy: LandingCopy['benefits'] }) {
   return (
@@ -16,7 +17,7 @@ export function Benefits({ copy }: { copy: LandingCopy['benefits'] }) {
         subtitle={copy.subtitle}
       />
 
-      <ul className="mt-12 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+      <Reveal as="ul" stagger className="mt-12 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
         {copy.items.map((item) => (
           <li key={item.title} className="card p-6">
             <span className="grid h-12 w-12 place-items-center rounded-lg border border-brand-400/30 bg-brand-500/10 text-brand-600">
@@ -26,7 +27,7 @@ export function Benefits({ copy }: { copy: LandingCopy['benefits'] }) {
             <p className="mt-2 text-sm leading-6 text-slate-700">{item.body}</p>
           </li>
         ))}
-      </ul>
+      </Reveal>
     </section>
   );
 }

@@ -4,6 +4,7 @@
 import { useLandingCopy } from '../useLandingCopy';
 import { PageHero } from '../components/PageHero';
 import { CTASection } from '../components/CTASection';
+import { Reveal } from '../components/Reveal';
 
 export function HowItWorksPage() {
   const p = useLandingCopy().pages.how;
@@ -27,7 +28,7 @@ export function HowItWorksPage() {
         aria-labelledby="how-page-title"
         className="section-x py-12 lg:py-16"
       >
-        <ol className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+        <Reveal as="ol" stagger className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
           {p.steps.map((step) => (
             <li key={step.n} className="glass-panel flex flex-col p-6">
               <span className="grid h-12 w-12 place-items-center rounded-lg bg-brand-600 font-mono text-base font-bold text-white shadow-card">
@@ -37,7 +38,7 @@ export function HowItWorksPage() {
               <p className="mt-2 text-sm leading-6 text-slate-700">{step.body}</p>
             </li>
           ))}
-        </ol>
+        </Reveal>
       </section>
 
       <CTASection

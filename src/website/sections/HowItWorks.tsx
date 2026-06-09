@@ -2,6 +2,7 @@ import { Fragment } from 'react';
 import type { LandingCopy } from '../copy';
 import { Icon, ArrowRightIcon } from '../icons';
 import { SectionHeading } from '../components/SectionHeading';
+import { Reveal } from '../components/Reveal';
 
 export function HowItWorks({ copy }: { copy: LandingCopy['how'] }) {
   return (
@@ -12,7 +13,7 @@ export function HowItWorks({ copy }: { copy: LandingCopy['how'] }) {
     >
       <SectionHeading id="how-title" kicker={copy.kicker} title={copy.title} subtitle={copy.subtitle} />
 
-      <ol className="mt-14 flex flex-col items-stretch gap-6 md:flex-row md:gap-4">
+      <Reveal as="ol" stagger className="mt-14 flex flex-col items-stretch gap-6 md:flex-row md:gap-4">
         {copy.steps.map((step, i) => (
           <Fragment key={step.n}>
             <li className="group relative flex-1">
@@ -49,7 +50,7 @@ export function HowItWorks({ copy }: { copy: LandingCopy['how'] }) {
             </li>
           </Fragment>
         ))}
-      </ol>
+      </Reveal>
     </section>
   );
 }

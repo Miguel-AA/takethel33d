@@ -7,6 +7,7 @@ import { useLandingCopy } from '../useLandingCopy';
 import { CheckIcon } from '../icons';
 import { PageHero } from '../components/PageHero';
 import { CTASection } from '../components/CTASection';
+import { Reveal } from '../components/Reveal';
 
 export function PricingPage() {
   const p = useLandingCopy().pages.pricing;
@@ -30,7 +31,7 @@ export function PricingPage() {
         aria-labelledby="pricing-page-title"
         className="section-x py-12 lg:py-16"
       >
-        <ul className="grid gap-6 lg:grid-cols-3">
+        <Reveal as="ul" stagger className="grid gap-6 lg:grid-cols-3">
           {p.plans.map((plan) => (
             <li
               key={plan.name}
@@ -67,7 +68,7 @@ export function PricingPage() {
               </Link>
             </li>
           ))}
-        </ul>
+        </Reveal>
 
         <p className="mt-8 text-center text-xs text-slate-500">{p.note}</p>
       </section>

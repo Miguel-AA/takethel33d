@@ -2,6 +2,7 @@ import { Link } from 'react-router-dom';
 import clsx from 'clsx';
 import type { LandingCopy } from '../copy';
 import { ArrowRightIcon, CheckIcon } from '../icons';
+import { Reveal } from '../components/Reveal';
 
 // Status pill palette, applied by row index so it stays locale-independent.
 const STATUS_STYLES = [
@@ -20,7 +21,7 @@ export function Hero({ copy }: { copy: LandingCopy['hero'] }) {
     >
       {/* Centered copy, wrapped in the same frosted glass container as the app
           register hero and the interior PageHero. */}
-      <div className="glass-panel-strong mx-auto flex flex-col items-center px-6 py-12 sm:px-12 sm:py-16">
+      <Reveal className="glass-panel-strong mx-auto flex flex-col items-center px-6 py-12 sm:px-12 sm:py-16">
         <span className="premium-kicker">{copy.badge}</span>
         <h1
           id="hero-title"
@@ -48,10 +49,10 @@ export function Hero({ copy }: { copy: LandingCopy['hero'] }) {
           <CheckIcon className="h-4 w-4 text-brand-600" />
           {copy.proof}
         </p>
-      </div>
+      </Reveal>
 
       {/* Lead Pipeline panel — pure presentation, app glass language, demo data. */}
-      <div className="relative mx-auto mt-14">
+      <Reveal delay={120} className="relative mx-auto mt-14">
         <div
           className="card-lg relative z-10 p-5 text-left sm:p-6"
           role="img"
@@ -122,7 +123,7 @@ export function Hero({ copy }: { copy: LandingCopy['hero'] }) {
           aria-hidden="true"
           className="pointer-events-none absolute -inset-6 -z-0 rounded-[2rem] bg-brand-500/20 blur-3xl"
         />
-      </div>
+      </Reveal>
     </section>
   );
 }

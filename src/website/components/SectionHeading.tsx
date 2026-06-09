@@ -1,5 +1,7 @@
 // Shared, centered section heading: kicker chip + title + optional subtitle.
 // Reuses the app's `.premium-kicker` and `accent-underline` visual tokens.
+// Wrapped in <Reveal> so every section heading fades in on scroll.
+import { Reveal } from './Reveal';
 
 export function SectionHeading({
   id,
@@ -17,7 +19,7 @@ export function SectionHeading({
   emphasis?: string;
 }) {
   return (
-    <div className="mx-auto max-w-2xl text-center">
+    <Reveal className="mx-auto max-w-2xl text-center">
       <span className="premium-kicker">{kicker}</span>
       <h2
         id={id}
@@ -32,6 +34,6 @@ export function SectionHeading({
         )}
       </h2>
       {subtitle && <p className="mt-4 text-lg leading-8 text-slate-700">{subtitle}</p>}
-    </div>
+    </Reveal>
   );
 }

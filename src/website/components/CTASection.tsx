@@ -3,6 +3,7 @@
 // points to another marketing page or the app at /events.
 import { Link } from 'react-router-dom';
 import { ArrowRightIcon } from '../icons';
+import { Reveal } from './Reveal';
 
 export function CTASection({
   title,
@@ -21,7 +22,7 @@ export function CTASection({
 }) {
   return (
     <section aria-labelledby="cta-band-title" className="section-x py-16 lg:py-24">
-      <div className="glass-panel-strong relative overflow-hidden px-6 py-14 text-center sm:px-12 sm:py-16">
+      <Reveal className="glass-panel-strong relative overflow-hidden px-6 py-14 text-center sm:px-12 sm:py-16">
         <div
           aria-hidden="true"
           className="pointer-events-none absolute -left-16 -top-16 h-48 w-48 rounded-full bg-brand-500/25 blur-3xl"
@@ -50,7 +51,7 @@ export function CTASection({
             )}
           </div>
         </div>
-      </div>
+      </Reveal>
     </section>
   );
 }

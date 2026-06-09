@@ -4,6 +4,7 @@ import { useLandingCopy } from '../useLandingCopy';
 import { Icon } from '../icons';
 import { PageHero } from '../components/PageHero';
 import { CTASection } from '../components/CTASection';
+import { Reveal } from '../components/Reveal';
 
 export function IndustriesPage() {
   const p = useLandingCopy().pages.industries;
@@ -27,7 +28,7 @@ export function IndustriesPage() {
         aria-labelledby="industries-page-title"
         className="section-x py-12 lg:py-16"
       >
-        <ul className="grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
+        <Reveal as="ul" stagger className="grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
           {p.items.map((item) => (
             <li key={item.title} className="card p-6">
               <span className="grid h-12 w-12 place-items-center rounded-lg border border-brand-400/30 bg-brand-500/10 text-brand-600">
@@ -37,7 +38,7 @@ export function IndustriesPage() {
               <p className="mt-2 text-sm leading-6 text-slate-700">{item.body}</p>
             </li>
           ))}
-        </ul>
+        </Reveal>
       </section>
 
       <CTASection

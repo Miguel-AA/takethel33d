@@ -6,6 +6,7 @@
 // render exactly like the home Hero's; the live mockup stays home-only.
 import { Link } from 'react-router-dom';
 import { ArrowRightIcon, CheckIcon } from '../icons';
+import { Reveal } from './Reveal';
 
 export function PageHero({
   id,
@@ -37,7 +38,7 @@ export function PageHero({
 }) {
   return (
     <section className="section-x relative isolate pb-12 pt-14 lg:pb-16 lg:pt-20">
-      <div className="glass-panel-strong mx-auto flex flex-col items-center px-6 py-12 text-center sm:px-12 sm:py-16">
+      <Reveal className="glass-panel-strong mx-auto flex flex-col items-center px-6 py-12 text-center sm:px-12 sm:py-16">
         <span className="premium-kicker">{kicker}</span>
         <h1
           id={id}
@@ -69,7 +70,7 @@ export function PageHero({
             {proof}
           </p>
         )}
-      </div>
+      </Reveal>
     </section>
   );
 }

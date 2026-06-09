@@ -1,5 +1,6 @@
 import type { LandingCopy } from '../copy';
 import { SectionHeading } from '../components/SectionHeading';
+import { Reveal } from '../components/Reveal';
 
 export function Trust({ copy }: { copy: LandingCopy['trust'] }) {
   return (
@@ -16,7 +17,7 @@ export function Trust({ copy }: { copy: LandingCopy['trust'] }) {
       />
 
       {/* Metrics — PLACEHOLDER values, edit in copy.ts before production */}
-      <dl className="glass-panel-strong mt-12 grid grid-cols-2 gap-6 p-6 sm:p-8 lg:grid-cols-4">
+      <Reveal as="dl" stagger className="glass-panel-strong mt-12 grid grid-cols-2 gap-6 p-6 sm:p-8 lg:grid-cols-4">
         {copy.metrics.map((m) => (
           <div key={m.label} className="text-center">
             <dt className="sr-only">{m.label}</dt>
@@ -28,7 +29,7 @@ export function Trust({ copy }: { copy: LandingCopy['trust'] }) {
             </dd>
           </div>
         ))}
-      </dl>
+      </Reveal>
 
       {/* Logo placeholders */}
       <p className="mt-12 text-center text-sm font-medium uppercase tracking-wide text-slate-500">
@@ -46,7 +47,7 @@ export function Trust({ copy }: { copy: LandingCopy['trust'] }) {
       </ul>
 
       {/* Testimonials — PLACEHOLDER quotes/authors */}
-      <ul className="mt-12 grid gap-5 md:grid-cols-2">
+      <Reveal as="ul" stagger className="mt-12 grid gap-5 md:grid-cols-2">
         {copy.testimonials.map((tst, i) => (
           <li key={i} className="card flex flex-col p-6 sm:p-7">
             <span aria-hidden="true" className="font-serif text-4xl leading-none text-brand-400">
@@ -67,7 +68,7 @@ export function Trust({ copy }: { copy: LandingCopy['trust'] }) {
             </figcaption>
           </li>
         ))}
-      </ul>
+      </Reveal>
 
       <p className="mt-8 text-center text-xs text-slate-500">{copy.disclaimer}</p>
     </section>
