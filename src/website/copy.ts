@@ -126,6 +126,8 @@ interface FooterCopy {
 interface PageHero {
   kicker: string;
   title: string;
+  /** Phrase within `title` rendered in the blue accent gradient (exact substring of `title`). */
+  titleEm: string;
   subtitle: string;
 }
 /** Labels for a reusable closing CTA band; the page supplies the targets. */
@@ -408,6 +410,7 @@ export const landingCopy: Record<LandingLocale, LandingCopy> = {
         hero: {
           kicker: 'Beneficios',
           title: 'Más oportunidades, menos tiempo perdido',
+          titleEm: 'oportunidades',
           subtitle:
             'Un flujo constante de leads relevantes ayuda a tu negocio a crecer con menos esfuerzo manual y más foco en cerrar.',
         },
@@ -464,6 +467,7 @@ export const landingCopy: Record<LandingLocale, LandingCopy> = {
         hero: {
           kicker: 'Cómo funciona',
           title: 'De objetivo a cliente, paso a paso',
+          titleEm: 'cliente',
           subtitle: 'Un proceso simple y transparente para convertir interés en oportunidades accionables.',
         },
         steps: [
@@ -504,6 +508,7 @@ export const landingCopy: Record<LandingLocale, LandingCopy> = {
         hero: {
           kicker: 'Industrias',
           title: 'Leads para distintos tipos de negocio',
+          titleEm: 'Leads',
           subtitle:
             'Si tu negocio necesita más clientes, reservas o consultas, un flujo de leads relevante puede ayudar.',
         },
@@ -560,6 +565,7 @@ export const landingCopy: Record<LandingLocale, LandingCopy> = {
         hero: {
           kicker: 'Planes',
           title: 'Planes pensados para crecer contigo',
+          titleEm: 'crecer contigo',
           subtitle:
             'Elige un punto de partida y escala a medida que crece tu negocio. Precios y condiciones editables.',
         },
@@ -612,6 +618,7 @@ export const landingCopy: Record<LandingLocale, LandingCopy> = {
         hero: {
           kicker: 'Contacto',
           title: 'Hablemos de cómo conseguir más leads',
+          titleEm: 'más leads',
           subtitle: 'Cuéntanos sobre tu negocio y tu objetivo. Te contactaremos para ayudarte a empezar.',
         },
         form: {
@@ -851,6 +858,7 @@ export const landingCopy: Record<LandingLocale, LandingCopy> = {
         hero: {
           kicker: 'Benefits',
           title: 'More opportunities, less wasted time',
+          titleEm: 'opportunities',
           subtitle:
             'A steady flow of relevant leads helps your business grow with less manual effort and more focus on closing.',
         },
@@ -907,6 +915,7 @@ export const landingCopy: Record<LandingLocale, LandingCopy> = {
         hero: {
           kicker: 'How it works',
           title: 'From goal to customer, step by step',
+          titleEm: 'customer',
           subtitle: 'A simple, transparent process to turn interest into actionable opportunities.',
         },
         steps: [
@@ -947,6 +956,7 @@ export const landingCopy: Record<LandingLocale, LandingCopy> = {
         hero: {
           kicker: 'Industries',
           title: 'Leads for many kinds of business',
+          titleEm: 'Leads',
           subtitle:
             'If your business needs more customers, bookings or inquiries, a flow of relevant leads can help.',
         },
@@ -1003,6 +1013,7 @@ export const landingCopy: Record<LandingLocale, LandingCopy> = {
         hero: {
           kicker: 'Pricing',
           title: 'Plans built to grow with you',
+          titleEm: 'grow with you',
           subtitle: 'Pick a starting point and scale as your business grows. Prices and terms are editable.',
         },
         note: 'Prices shown are examples. Contact us for a quote tailored to your business.',
@@ -1054,6 +1065,7 @@ export const landingCopy: Record<LandingLocale, LandingCopy> = {
         hero: {
           kicker: 'Contact',
           title: 'Let’s talk about getting more leads',
+          titleEm: 'more leads',
           subtitle: 'Tell us about your business and your goal. We’ll reach out to help you get started.',
         },
         form: {
