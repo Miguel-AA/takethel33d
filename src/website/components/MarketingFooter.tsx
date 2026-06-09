@@ -40,7 +40,7 @@ export function MarketingFooter({ copy }: { copy: LandingCopy['footer'] }) {
               aria-label={col.title}
               className="border-t border-white/40 pt-8 first:border-t-0 first:pt-0 md:border-t-0 md:pt-0"
             >
-              <h2 className="text-xs font-semibold uppercase tracking-wide text-slate-500">{col.title}</h2>
+              <h2 className="text-base font-bold uppercase tracking-wide text-brand-700">{col.title}</h2>
               <ul className="mt-4 space-y-3">
                 {col.links.map((link) => (
                   <li key={link.label}>

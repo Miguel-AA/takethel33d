@@ -15,6 +15,22 @@
     background-image: linear-gradient(180deg, #ffffff 0%, #eef1f5 42%, #e6e9ef 100%);
     background-attachment: fixed;
   }
+  /* Never let a stray wide element create a horizontal scrollbar on mobile. */
+  html,
+  body {
+    @apply overflow-x-hidden;
+    max-width: 100%;
+  }
+  /* iOS Safari zooms the page when a focused form control has a font-size
+     below 16px. Force 16px on small screens so focusing an input never
+     triggers an auto-zoom. */
+  @media (max-width: 640px) {
+    input,
+    select,
+    textarea {
+      font-size: 16px;
+    }
+  }
 }
 
 @layer components {
