@@ -10,8 +10,15 @@
 --
 -- All new survey columns are NULLABLE so existing rows migrate without data
 -- loss. Existing ids are preserved, so raffle_draws.attendee_id stays valid.
+--
+-- D1 runs each migration inside a transaction. `PRAGMA foreign_keys=OFF` is a
+-- no-op there, and SQLite refuses to DROP a table that another table's FK still
+-- references. So we rebuild BOTH tables in dependency order: stash raffle_draws,
+-- drop the child, rebuild attendees, recreate raffle_draws, restore its rows.
+-- `defer_foreign_keys` postpones row-level FK checks to commit, when every
+-- reference is valid again (ids are preserved end-to-end).
 
-PRAGMA foreign_keys=OFF;
+PRAGMA defer_foreign_keys=ON;
 
 CREATE TABLE attendees_new (
   id TEXT PRIMARY KEY,
@@ -47,6 +54,11 @@ SELECT
   created_at
 FROM attendees;
 
+-- Stash raffle history, then drop the child so nothing references attendees.
+CREATE TABLE raffle_draws_backup AS SELECT * FROM raffle_draws;
+DROP TABLE raffle_draws;
+
+-- Swap in the new attendees table.
 DROP TABLE attendees;
 ALTER TABLE attendees_new RENAME TO attendees;
 
@@ -54,4 +66,13 @@ CREATE INDEX idx_attendees_email ON attendees(email);
 CREATE INDEX idx_attendees_number ON attendees(participant_number);
 CREATE INDEX idx_attendees_created ON attendees(created_at);
 
-PRAGMA foreign_keys=ON;
+-- Recreate raffle_draws (FK now points at the rebuilt attendees) and restore.
+CREATE TABLE raffle_draws (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  attendee_id TEXT NOT NULL REFERENCES attendees(id),
+  drawn_at TEXT NOT NULL DEFAULT (datetime('now')),
+  mode TEXT NOT NULL CHECK (mode IN ('random','manual'))
+);
+INSERT INTO raffle_draws (id, attendee_id, drawn_at, mode)
+  SELECT id, attendee_id, drawn_at, mode FROM raffle_draws_backup;
+DROP TABLE raffle_draws_backup;
