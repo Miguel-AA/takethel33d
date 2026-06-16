@@ -2,7 +2,7 @@
 
 > Captura de leads de seguros con formulario Jotform embebido, webhook a
 > Cloudflare Workers, asignación de número de participante para rifa de
-> iPad y dashboard del manager.
+> gift card y dashboard del manager.
 >
 > **Stack:** React 18 + TypeScript + Vite + TailwindCSS · Cloudflare Pages + Pages Functions + D1 + Resend.
 > **API contract:** [`API.md`](./API.md) · **Migrations:** [`migrations/`](./migrations/)
@@ -228,17 +228,17 @@ Algunas métricas que puede mostrar son:
 
 Por ejemplo, si el 50% de las personas registradas son mujeres, esa información deberá mostrarse automáticamente en el dashboard. Si luego se registra otra persona, el porcentaje deberá actualizarse en vivo sin necesidad de recargar la página.
 
-## Rifa del iPad
+## Rifa del gift card
 
 Después del evento, se realizará una rifa entre las personas registradas. Como cada participante tendrá un número único asignado, el sistema deberá permitir seleccionar un número ganador.
 
-La persona que tenga el número ganador recibirá un **iPad** como premio.
+La persona que tenga el número ganador recibirá un **gift card** como premio.
 
 El manager deberá poder realizar o registrar la rifa desde el panel administrativo. Una vez seleccionado el número ganador, la aplicación deberá identificar automáticamente a la persona asociada a ese número.
 
 ## Notificación al ganador
 
-Cuando se seleccione el número ganador de la rifa, el sistema deberá enviar automáticamente un correo electrónico a la persona ganadora, notificándole que ganó el iPad.
+Cuando se seleccione el número ganador de la rifa, el sistema deberá enviar automáticamente un correo electrónico a la persona ganadora, notificándole que ganó el gift card.
 
 El correo deberá incluir un mensaje de felicitación y la información necesaria para reclamar el premio.
 
@@ -254,11 +254,11 @@ Gifted Grads Events deberá incluir dos áreas principales:
 
 ### 1. Aplicación para asistentes
 
-En esta parte, los usuarios podrán registrarse llenando un formulario con su información personal. Al completar el registro, recibirán un número único de participante que será utilizado para la rifa del iPad.
+En esta parte, los usuarios podrán registrarse llenando un formulario con su información personal. Al completar el registro, recibirán un número único de participante que será utilizado para la rifa del gift card.
 
 ### 2. Aplicación o dashboard para el manager
 
-En esta parte, el manager podrá ver todos los registros en tiempo real, revisar la información de los asistentes, consultar métricas actualizadas, buscar participantes y gestionar la rifa del iPad.
+En esta parte, el manager podrá ver todos los registros en tiempo real, revisar la información de los asistentes, consultar métricas actualizadas, buscar participantes y gestionar la rifa del gift card.
 
 ## Flujo general de la aplicación
 
@@ -272,4 +272,4 @@ En esta parte, el manager podrá ver todos los registros en tiempo real, revisar
 8. Después del evento, el manager realiza la rifa.
 9. El sistema selecciona o registra el número ganador.
 10. La aplicación identifica al ganador.
-11. El ganador recibe una notificación por correo electrónico informándole que ganó el iPad.
+11. El ganador recibe una notificación por correo electrónico informándole que ganó el gift card.

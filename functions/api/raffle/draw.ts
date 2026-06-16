@@ -1,6 +1,6 @@
 import { raffleDrawSchema } from '../../../shared/schemas';
 import { error, json } from '../../_shared/responses';
-import { rowToAttendeeIso, type AttendeeRow } from '../../_shared/db';
+import { ATTENDEE_COLUMNS, rowToAttendeeIso, type AttendeeRow } from '../../_shared/db';
 import { sendResendEmail, winnerEmail } from '../../_shared/emails';
 
 type Env = {
@@ -27,7 +27,7 @@ export const onRequestPost: PagesFunction<Env> = async (ctx) => {
   let winnerRow: AttendeeRow | null = null;
   if (body.mode === 'manual') {
     winnerRow = await ctx.env.DB.prepare(
-      `SELECT id, participant_number, nombre, email, telefono, insurance_type, created_at
+      `SELECT ${ATTENDEE_COLUMNS}
        FROM attendees WHERE participant_number = ? LIMIT 1`,
     )
       .bind(body.participantNumber)
@@ -45,9 +45,9 @@ export const onRequestPost: PagesFunction<Env> = async (ctx) => {
     }
   } else {
     winnerRow = await ctx.env.DB.prepare(
-      `SELECT a.id, a.participant_number, a.nombre, a.email, a.telefono, a.insurance_type, a.created_at
-       FROM attendees a
-       WHERE NOT EXISTS (SELECT 1 FROM raffle_draws r WHERE r.attendee_id = a.id)
+      `SELECT ${ATTENDEE_COLUMNS}
+       FROM attendees
+       WHERE NOT EXISTS (SELECT 1 FROM raffle_draws r WHERE r.attendee_id = attendees.id)
        ORDER BY RANDOM() LIMIT 1`,
     ).first<AttendeeRow>();
     if (!winnerRow) {

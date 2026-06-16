@@ -10,6 +10,25 @@ import type { Attendee } from '@shared/types';
 
 const PAGE_SIZE = 25;
 
+type Translate = (key: string, vars?: Record<string, string | number>) => string;
+
+function fullName(a: Attendee): string {
+  return `${a.firstName} ${a.lastName}`.trim();
+}
+
+function housingLabel(a: Attendee, t: Translate): string {
+  return a.housingStatus ? t(`housing.${a.housingStatus}`) : '—';
+}
+
+function educationLabel(a: Attendee, t: Translate): string {
+  return a.highestLevelOfEducation ? t(`education.${a.highestLevelOfEducation}`) : '—';
+}
+
+function yesNo(value: boolean | undefined, t: Translate): string {
+  if (value === undefined) return '—';
+  return value ? t('common.yes') : t('common.no');
+}
+
 export function AttendeeTable() {
   const { t, locale } = useTranslation();
   const [searchInput, setSearchInput] = useState('');
@@ -117,11 +136,11 @@ export function AttendeeTable() {
             <thead className="bg-slate-900/5 text-xs uppercase tracking-wide text-slate-500">
               <tr>
                 <th className="px-4 py-2 text-left">{t('dashboard.table.number')}</th>
-                <th className="px-4 py-2 text-left">{t('dashboard.table.nombre')}</th>
+                <th className="px-4 py-2 text-left">{t('dashboard.table.name')}</th>
                 <th className="px-4 py-2 text-left">{t('dashboard.table.email')}</th>
-                <th className="px-4 py-2 text-left">{t('dashboard.table.telefono')}</th>
-                <th className="px-4 py-2 text-left">{t('dashboard.table.insuranceType')}</th>
-                <th className="px-4 py-2 text-left">{t('dashboard.table.createdAt')}</th>
+                <th className="px-4 py-2 text-left">{t('dashboard.table.phone')}</th>
+                <th className="hidden px-4 py-2 text-left md:table-cell">{t('dashboard.table.city')}</th>
+                <th className="hidden px-4 py-2 text-left lg:table-cell">{t('dashboard.table.createdAt')}</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-900/10">
@@ -134,13 +153,11 @@ export function AttendeeTable() {
                   <td className="px-4 py-2 font-mono text-brand-700">
                     {formatParticipantNumber(a.participantNumber)}
                   </td>
-                  <td className="px-4 py-2 font-medium text-slate-900">{a.nombre}</td>
+                  <td className="px-4 py-2 font-medium text-slate-900">{fullName(a)}</td>
                   <td className="px-4 py-2 text-slate-600">{a.email}</td>
-                  <td className="px-4 py-2 text-slate-600">{a.telefono}</td>
-                  <td className="px-4 py-2 text-slate-600">
-                    {t(`insurance.${a.insuranceType}`)}
-                  </td>
-                  <td className="px-4 py-2 text-slate-500">
+                  <td className="px-4 py-2 text-slate-600">{a.phone}</td>
+                  <td className="hidden px-4 py-2 text-slate-600 md:table-cell">{a.city ?? '—'}</td>
+                  <td className="hidden px-4 py-2 text-slate-500 lg:table-cell">
                     {formatDateTime(a.createdAt, locale)}
                   </td>
                 </tr>
@@ -190,29 +207,41 @@ export function AttendeeTable() {
   );
 }
 
-function downloadCsv(
-  rows: Attendee[],
-  locale: string,
-  t: (key: string) => string,
-) {
+function downloadCsv(rows: Attendee[], locale: string, t: Translate) {
   const headers = [
-    '#',
-    t('register.field.nombre'),
+    t('dashboard.table.number'),
+    t('register.field.firstName'),
+    t('register.field.lastName'),
+    t('register.field.phone'),
     t('register.field.email'),
-    t('register.field.telefono'),
-    t('register.field.insuranceType'),
+    t('register.field.highestLevelOfEducation'),
+    t('register.field.age'),
+    t('register.field.zip'),
+    t('register.field.city'),
+    t('register.field.housingStatus'),
+    t('register.field.ownsVehicle'),
+    t('register.field.isBusinessOwner'),
     t('dashboard.table.createdAt'),
   ];
   const body = rows.map((a) => [
     formatParticipantNumber(a.participantNumber),
-    a.nombre,
+    a.firstName,
+    a.lastName,
+    a.phone,
     a.email,
-    a.telefono,
-    t(`insurance.${a.insuranceType}`),
+    educationLabel(a, t),
+    a.age !== undefined ? String(a.age) : '',
+    a.zip ?? '',
+    a.city ?? '',
+    housingLabel(a, t),
+    yesNo(a.ownsVehicle, t),
+    yesNo(a.isBusinessOwner, t),
     formatDateTime(a.createdAt, locale),
   ]);
   const csv = [headers, ...body].map((row) => row.map(csvCell).join(',')).join('\n');
-  const blob = new Blob([`\uFEFF${csv}`], { type: 'text/csv;charset=utf-8' });
+  // Lead with a UTF-8 BOM (U+FEFF) so Excel opens accented characters correctly.
+  const BOM = String.fromCharCode(0xfeff);
+  const blob = new Blob([BOM + csv], { type: 'text/csv;charset=utf-8' });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;

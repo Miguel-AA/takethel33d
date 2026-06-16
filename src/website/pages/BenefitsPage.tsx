@@ -1,11 +1,9 @@
-// Benefits — "/benefits". Explains in depth how a steady flow of leads helps a
-// business: more opportunities, less manual prospecting, intent-driven contacts,
-// better follow-up, team efficiency, predictable growth, a fuller schedule.
+// Benefits — "/benefits". A full marketing page: hero, core benefits (3),
+// why it matters (3), and a closing CTA. Conversion-focused, driving to /events.
 import { useLandingCopy } from '../useLandingCopy';
-import { Icon } from '../icons';
 import { PageHero } from '../components/PageHero';
+import { CardSection } from '../components/CardSection';
 import { CTASection } from '../components/CTASection';
-import { Reveal } from '../components/Reveal';
 
 export function BenefitsPage() {
   const p = useLandingCopy().pages.benefits;
@@ -19,34 +17,33 @@ export function BenefitsPage() {
         titleEm={p.hero.titleEm}
         subtitle={p.hero.subtitle}
         primaryLabel={p.hero.ctaPrimary}
-        primaryTo="/contact"
+        primaryTo="/events"
         secondaryLabel={p.hero.ctaSecondary}
         secondaryTo="/how-it-works"
         proof={p.hero.proof}
       />
 
-      <section
-        aria-labelledby="benefits-page-title"
-        className="section-x py-12 lg:py-16"
-      >
-        <Reveal as="ul" stagger className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
-          {p.items.map((item) => (
-            <li key={item.title} className="card p-6">
-              <span className="grid h-12 w-12 place-items-center rounded-lg border border-brand-400/30 bg-brand-500/10 text-brand-600">
-                <Icon name={item.icon} className="h-6 w-6" />
-              </span>
-              <h3 className="mt-4 text-lg font-semibold text-slate-900">{item.title}</h3>
-              <p className="mt-2 text-sm leading-6 text-slate-700">{item.body}</p>
-            </li>
-          ))}
-        </Reveal>
-      </section>
+      <CardSection
+        id="benefits-core"
+        kicker={p.core.kicker}
+        title={p.core.title}
+        subtitle={p.core.subtitle}
+        items={p.core.items}
+      />
+
+      <CardSection
+        id="benefits-why"
+        kicker={p.why.kicker}
+        title={p.why.title}
+        subtitle={p.why.subtitle}
+        items={p.why.items}
+      />
 
       <CTASection
         title={p.cta.title}
         subtitle={p.cta.subtitle}
         primaryLabel={p.cta.primary}
-        primaryTo="/contact"
+        primaryTo="/events"
         secondaryLabel={p.cta.secondary}
         secondaryTo="/how-it-works"
       />

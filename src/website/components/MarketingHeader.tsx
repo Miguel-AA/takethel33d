@@ -53,6 +53,7 @@ export function MarketingHeader({ nav }: { nav: LandingCopy['nav'] }) {
     { to: '/benefits', label: nav.benefits, icon: 'sparkle' },
     { to: '/how-it-works', label: nav.how, icon: 'funnel' },
     { to: '/industries', label: nav.industries, icon: 'building' },
+    { to: '/about-us', label: nav.about, icon: 'book' },
     { to: '/pricing', label: nav.pricing, icon: 'layers' },
     { to: '/contact', label: nav.contact, icon: 'bell' },
   ];

@@ -2,38 +2,40 @@ import type {
   Attendee,
   AttendeeListResponse,
   CurrentRaffleResponse,
-  InsuranceType,
-  InsuranceTypeBreakdown,
+  EducationBreakdown,
+  EducationLevel,
+  HousingStatus,
   LoginResponse,
   Metrics,
   RaffleDrawRequest,
   RaffleDrawResponse,
   RegisterRequest,
   RegisterResponse,
-  RegistrationLookup,
 } from '@shared/types';
+import { EDUCATION_LEVELS } from '@shared/types';
 import { ApiError } from './api';
 
 const MOCK_PASSWORD = 'admin';
 const TOKEN_TTL_MS = 12 * 60 * 60 * 1000;
 
-const insuranceTypes: InsuranceType[] = ['HOUSE', 'AUTO', 'LIFE'];
-const nombresSeed = [
-  'Ana López',
-  'Carlos Pérez',
-  'María García',
-  'Juan Rodríguez',
-  'Lucía Fernández',
-  'Pedro Sánchez',
-  'Sofía Ramírez',
-  'Diego Torres',
-  'Valeria Castro',
-  'Andrés Morales',
-  'Camila Vargas',
-  'Mateo Herrera',
-  'Isabella Ruiz',
-  'Sebastián Mendoza',
-  'Daniela Rojas',
+const educationLevels: EducationLevel[] = EDUCATION_LEVELS;
+const housingStatuses: HousingStatus[] = ['OWNER', 'RENTER'];
+const namesSeed: Array<[string, string]> = [
+  ['Ana', 'López'],
+  ['Carlos', 'Pérez'],
+  ['María', 'García'],
+  ['Juan', 'Rodríguez'],
+  ['Lucía', 'Fernández'],
+  ['Pedro', 'Sánchez'],
+  ['Sofía', 'Ramírez'],
+  ['Diego', 'Torres'],
+  ['Valeria', 'Castro'],
+  ['Andrés', 'Morales'],
+  ['Camila', 'Vargas'],
+  ['Mateo', 'Herrera'],
+  ['Isabella', 'Ruiz'],
+  ['Sebastián', 'Mendoza'],
+  ['Daniela', 'Rojas'],
 ];
 
 const attendees: Attendee[] = [];
@@ -45,16 +47,22 @@ let activeToken: { token: string; expiresAt: string } | null = null;
 function seed() {
   if (attendees.length > 0) return;
   const now = Date.now();
-  nombresSeed.forEach((nombre, i) => {
-    const [first] = nombre.toLowerCase().split(' ');
+  namesSeed.forEach(([firstName, lastName], i) => {
     attendees.push({
       id: crypto.randomUUID(),
       participantNumber: nextNumber++,
-      nombre,
-      email: `${first}${i}@example.com`,
-      telefono: `+1 555 000 ${(1000 + i).toString().slice(-4)}`,
-      insuranceType: insuranceTypes[i % insuranceTypes.length],
-      createdAt: new Date(now - (nombresSeed.length - i) * 60_000).toISOString(),
+      firstName,
+      lastName,
+      email: `${firstName.toLowerCase()}${i}@example.com`,
+      phone: `+1 555 000 ${(1000 + i).toString().slice(-4)}`,
+      highestLevelOfEducation: educationLevels[i % educationLevels.length],
+      age: 22 + (i % 30),
+      zip: `${33000 + i}`,
+      city: 'Miami',
+      housingStatus: housingStatuses[i % housingStatuses.length],
+      ownsVehicle: i % 2 === 0,
+      isBusinessOwner: i % 3 === 0,
+      createdAt: new Date(now - (namesSeed.length - i) * 60_000).toISOString(),
     });
   });
 }
@@ -63,24 +71,44 @@ function delay<T>(value: T, ms = 150): Promise<T> {
   return new Promise((resolve) => setTimeout(() => resolve(value), ms));
 }
 
+function emptyEducation(): EducationBreakdown {
+  return EDUCATION_LEVELS.reduce((acc, level) => {
+    acc[level] = 0;
+    return acc;
+  }, {} as EducationBreakdown);
+}
+
 function computeMetrics(): Metrics {
   const total = attendees.length;
-  const byInsuranceType: InsuranceTypeBreakdown = { HOUSE: 0, AUTO: 0, LIFE: 0 };
-  for (const a of attendees) byInsuranceType[a.insuranceType]++;
-  const insuranceTypePercent: InsuranceTypeBreakdown = {
-    HOUSE: total ? (byInsuranceType.HOUSE / total) * 100 : 0,
-    AUTO: total ? (byInsuranceType.AUTO / total) * 100 : 0,
-    LIFE: total ? (byInsuranceType.LIFE / total) * 100 : 0,
-  };
+  const byHousingStatus = { OWNER: 0, RENTER: 0, unknown: 0 };
+  const byVehicle = { yes: 0, no: 0, unknown: 0 };
+  const byBusinessOwner = { yes: 0, no: 0, unknown: 0 };
+  const byEducation = emptyEducation();
+
+  for (const a of attendees) {
+    if (a.housingStatus === 'OWNER' || a.housingStatus === 'RENTER') byHousingStatus[a.housingStatus]++;
+    else byHousingStatus.unknown++;
+
+    if (a.ownsVehicle === true) byVehicle.yes++;
+    else if (a.ownsVehicle === false) byVehicle.no++;
+    else byVehicle.unknown++;
+
+    if (a.isBusinessOwner === true) byBusinessOwner.yes++;
+    else if (a.isBusinessOwner === false) byBusinessOwner.no++;
+    else byBusinessOwner.unknown++;
+
+    if (a.highestLevelOfEducation) byEducation[a.highestLevelOfEducation]++;
+  }
+
   const todayPrefix = new Date().toISOString().slice(0, 10);
-  const leadsToday = attendees.filter((a) =>
-    a.createdAt.startsWith(todayPrefix),
-  ).length;
+  const leadsToday = attendees.filter((a) => a.createdAt.startsWith(todayPrefix)).length;
   return {
     total,
     leadsToday,
-    byInsuranceType,
-    insuranceTypePercent,
+    byHousingStatus,
+    byVehicle,
+    byBusinessOwner,
+    byEducation,
     updatedAt: new Date().toISOString(),
   };
 }
@@ -101,10 +129,17 @@ export const mockApi = {
     const attendee: Attendee = {
       id: crypto.randomUUID(),
       participantNumber: nextNumber++,
-      nombre: body.nombre,
+      firstName: body.firstName,
+      lastName: body.lastName,
       email: emailLower,
-      telefono: body.telefono,
-      insuranceType: body.insuranceType,
+      phone: body.phone,
+      highestLevelOfEducation: body.highestLevelOfEducation,
+      age: body.age,
+      zip: body.zip,
+      city: body.city,
+      housingStatus: body.housingStatus,
+      ownsVehicle: body.ownsVehicle,
+      isBusinessOwner: body.isBusinessOwner,
       createdAt: new Date().toISOString(),
     };
     attendees.push(attendee);
@@ -144,7 +179,9 @@ export const mockApi = {
     const filtered = search
       ? attendees.filter(
           (a) =>
-            a.nombre.toLowerCase().includes(search) ||
+            a.firstName.toLowerCase().includes(search) ||
+            a.lastName.toLowerCase().includes(search) ||
+            `${a.firstName} ${a.lastName}`.toLowerCase().includes(search) ||
             a.email.toLowerCase().includes(search) ||
             String(a.participantNumber).includes(search) ||
             String(a.participantNumber).padStart(3, '0').includes(search),
@@ -220,15 +257,5 @@ export const mockApi = {
   async currentRaffle(): Promise<CurrentRaffleResponse | null> {
     requireAuth();
     return delay(currentWinner);
-  },
-
-  async getRegistrationBySubmission(id: string): Promise<RegistrationLookup> {
-    seed();
-    const found = attendees[attendees.length - 1];
-    if (!found) {
-      throw new ApiError(404, 'PENDING', 'Registration not yet processed');
-    }
-    void id;
-    return delay({ participantNumber: found.participantNumber, attendee: found });
   },
 };

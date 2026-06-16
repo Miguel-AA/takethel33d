@@ -1,5 +1,5 @@
 import { error, json } from '../../_shared/responses';
-import { rowToAttendeeIso, type AttendeeRow } from '../../_shared/db';
+import { ATTENDEE_COLUMNS, rowToAttendeeIso, type AttendeeRow } from '../../_shared/db';
 
 type Env = { DB: D1Database };
 
@@ -10,7 +10,7 @@ export const onRequestGet: PagesFunction<Env, 'id'> = async (ctx) => {
   }
 
   const row = await ctx.env.DB.prepare(
-    `SELECT id, participant_number, nombre, email, telefono, insurance_type, created_at
+    `SELECT ${ATTENDEE_COLUMNS}
      FROM attendees WHERE id = ? LIMIT 1`,
   )
     .bind(id)

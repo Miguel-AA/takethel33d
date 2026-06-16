@@ -4,17 +4,18 @@ import { MetricCard } from './MetricCard';
 import { Spinner } from './Spinner';
 import { ErrorBanner } from './ErrorBanner';
 import { formatPercent } from '../lib/format';
-import type { InsuranceType } from '@shared/types';
+import { EDUCATION_LEVELS } from '@shared/types';
 
 function BarRow({
   label,
   count,
-  percent,
+  total,
 }: {
   label: string;
   count: number;
-  percent: number;
+  total: number;
 }) {
+  const percent = total > 0 ? (count / total) * 100 : 0;
   return (
     <div className="text-xs">
       <div className="flex items-center justify-between">
@@ -33,8 +34,6 @@ function BarRow({
   );
 }
 
-const INSURANCE_TYPES: InsuranceType[] = ['HOUSE', 'AUTO', 'LIFE'];
-
 export function MetricsGrid() {
   const { t, locale } = useTranslation();
   const { data, isLoading, isError } = useMetrics();
@@ -52,6 +51,7 @@ export function MetricsGrid() {
   }
 
   const updatedAtTime = new Date(data.updatedAt).toLocaleTimeString(locale);
+  const total = data.total;
 
   return (
     <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
@@ -60,25 +60,41 @@ export function MetricsGrid() {
         value={data.total}
         hint={t('dashboard.metric.updatedAt', { time: updatedAtTime })}
       />
-      <MetricCard
-        label={t('dashboard.metric.leadsToday')}
-        value={data.leadsToday}
-      />
-      <MetricCard
-        className="sm:col-span-2"
-        label={t('dashboard.metric.insuranceType')}
-      >
+      <MetricCard label={t('dashboard.metric.leadsToday')} value={data.leadsToday} />
+
+      <MetricCard label={t('dashboard.metric.housing')}>
         <div className="space-y-2">
-          {INSURANCE_TYPES.every((k) => data.byInsuranceType[k] === 0) && (
+          <BarRow label={t('housing.OWNER')} count={data.byHousingStatus.OWNER} total={total} />
+          <BarRow label={t('housing.RENTER')} count={data.byHousingStatus.RENTER} total={total} />
+        </div>
+      </MetricCard>
+
+      <MetricCard label={t('dashboard.metric.vehicle')}>
+        <div className="space-y-2">
+          <BarRow label={t('common.yes')} count={data.byVehicle.yes} total={total} />
+          <BarRow label={t('common.no')} count={data.byVehicle.no} total={total} />
+        </div>
+      </MetricCard>
+
+      <MetricCard label={t('dashboard.metric.business')}>
+        <div className="space-y-2">
+          <BarRow label={t('common.yes')} count={data.byBusinessOwner.yes} total={total} />
+          <BarRow label={t('common.no')} count={data.byBusinessOwner.no} total={total} />
+        </div>
+      </MetricCard>
+
+      <MetricCard className="sm:col-span-2 lg:col-span-3" label={t('dashboard.metric.education')}>
+        <div className="grid gap-2 sm:grid-cols-2">
+          {EDUCATION_LEVELS.filter((level) => data.byEducation[level] > 0).length === 0 && (
             <div className="text-xs text-slate-500">-</div>
           )}
-          {INSURANCE_TYPES.map((k) =>
-            data.byInsuranceType[k] > 0 ? (
+          {EDUCATION_LEVELS.map((level) =>
+            data.byEducation[level] > 0 ? (
               <BarRow
-                key={k}
-                label={t(`insurance.${k}`)}
-                count={data.byInsuranceType[k]}
-                percent={data.insuranceTypePercent[k]}
+                key={level}
+                label={t(`education.${level}`)}
+                count={data.byEducation[level]}
+                total={total}
               />
             ) : null,
           )}

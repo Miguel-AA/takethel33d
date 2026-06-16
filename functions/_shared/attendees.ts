@@ -1,38 +1,19 @@
 import type { RegisterRequest, Attendee } from '../../shared/types';
-import { rowToAttendeeIso, type AttendeeRow } from './db';
+import { ATTENDEE_COLUMNS, rowToAttendeeIso, type AttendeeRow } from './db';
 
 export type InsertAttendeeResult =
   | { kind: 'inserted'; attendee: Attendee }
-  | { kind: 'email_exists' }
-  | { kind: 'idempotent'; attendee: Attendee };
+  | { kind: 'email_exists' };
 
 /**
- * Atomically assigns the next participant_number and inserts an attendee
- * (now an insurance lead). Handles UNIQUE collisions on participant_number
- * with a small retry loop.
- *
- * If `jotformSubmissionId` is provided and a row already exists for it,
- * returns `{ kind: 'idempotent' }` without inserting — this lets the
- * Jotform webhook be safely re-delivered.
+ * Atomically assigns the next participant_number and inserts a lead captured
+ * through the app's own /events flow. Handles UNIQUE collisions on
+ * participant_number with a small retry loop.
  */
 export async function insertAttendee(
   db: D1Database,
   data: RegisterRequest,
-  jotformSubmissionId?: string,
 ): Promise<InsertAttendeeResult> {
-  if (jotformSubmissionId) {
-    const existing = await db
-      .prepare(
-        `SELECT id, participant_number, nombre, email, telefono, insurance_type, created_at
-         FROM attendees WHERE jotform_submission_id = ? LIMIT 1`,
-      )
-      .bind(jotformSubmissionId)
-      .first<AttendeeRow>();
-    if (existing) {
-      return { kind: 'idempotent', attendee: rowToAttendeeIso(existing) };
-    }
-  }
-
   const emailDup = await db
     .prepare('SELECT id FROM attendees WHERE email = ? COLLATE NOCASE LIMIT 1')
     .bind(data.email)
@@ -52,19 +33,26 @@ export async function insertAttendee(
     try {
       const insert = await db
         .prepare(
-          `INSERT INTO attendees (id, participant_number, nombre, email, telefono,
-                                  insurance_type, jotform_submission_id)
-           VALUES (?, ?, ?, ?, ?, ?, ?)
-           RETURNING id, participant_number, nombre, email, telefono, insurance_type, created_at`,
+          `INSERT INTO attendees (id, participant_number, first_name, last_name, email, phone,
+                                  highest_level_of_education, age, zip, city,
+                                  housing_status, owns_vehicle, is_business_owner)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+           RETURNING ${ATTENDEE_COLUMNS}`,
         )
         .bind(
           id,
           participantNumber,
-          data.nombre,
+          data.firstName,
+          data.lastName,
           data.email,
-          data.telefono,
-          data.insuranceType,
-          jotformSubmissionId ?? null,
+          data.phone,
+          data.highestLevelOfEducation,
+          data.age,
+          data.zip,
+          data.city ?? null,
+          data.housingStatus,
+          data.ownsVehicle ? 1 : 0,
+          data.isBusinessOwner ? 1 : 0,
         )
         .first<AttendeeRow>();
       if (!insert) throw new Error('Insert returned no row');
@@ -75,20 +63,6 @@ export async function insertAttendee(
       if (/UNIQUE/i.test(msg) && /participant_number/i.test(msg)) continue;
       if (/UNIQUE/i.test(msg) && /email/i.test(msg)) {
         return { kind: 'email_exists' };
-      }
-      if (/UNIQUE/i.test(msg) && /jotform_submission/i.test(msg)) {
-        if (jotformSubmissionId) {
-          const existing = await db
-            .prepare(
-              `SELECT id, participant_number, nombre, email, telefono, insurance_type, created_at
-               FROM attendees WHERE jotform_submission_id = ? LIMIT 1`,
-            )
-            .bind(jotformSubmissionId)
-            .first<AttendeeRow>();
-          if (existing) {
-            return { kind: 'idempotent', attendee: rowToAttendeeIso(existing) };
-          }
-        }
       }
       throw err;
     }

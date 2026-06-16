@@ -77,7 +77,7 @@ export function RegisterPage() {
                   </div>
                 </div>
                 <div className="mt-4 flex justify-end">
-                  <IpadIllustration className="h-20 w-auto" />
+                  <GiftCardIllustration className="h-20 w-auto" />
                 </div>
               </div>
 
@@ -175,16 +175,24 @@ function TeamIcon() {
     </svg>
   );
 }
-function IpadIllustration({ className }: { className?: string }) {
+function GiftCardIllustration({ className }: { className?: string }) {
   return (
     <svg viewBox="0 0 120 90" className={className} aria-hidden="true">
-      <rect x="22" y="6" width="76" height="62" rx="6" fill="#0b1220" stroke="#1747c4" strokeOpacity="0.35" />
-      <rect x="26" y="10" width="68" height="54" rx="3" fill="#101b30" />
-      <path d="M28 52 C 46 24 70 20 92 34" fill="none" stroke="#4f7cf0" strokeWidth="5" strokeLinecap="round" opacity="0.95" />
-      <path d="M34 18 h 42" stroke="#c9ced4" strokeOpacity="0.65" strokeWidth="2" strokeLinecap="round" />
-      <circle cx="86" cy="20" r="3" fill="#84a8fb" />
-      <rect x="14" y="68" width="92" height="6" rx="3" fill="#27272a" />
-      <rect x="22" y="74" width="76" height="3" rx="1.5" fill="#52525b" />
+      {/* Card body */}
+      <rect x="16" y="26" width="88" height="54" rx="8" fill="#101b30" stroke="#1747c4" strokeOpacity="0.4" />
+      <rect x="16" y="38" width="88" height="9" fill="#1747c4" opacity="0.85" />
+      <rect x="26" y="58" width="26" height="8" rx="2" fill="#4f7cf0" opacity="0.9" />
+      <rect x="26" y="70" width="40" height="4" rx="2" fill="#c9ced4" opacity="0.5" />
+      {/* Ribbon + bow */}
+      <rect x="56" y="26" width="8" height="54" fill="#84a8fb" opacity="0.9" />
+      <path
+        d="M60 26 C 48 12 40 20 48 26 M60 26 C 72 12 80 20 72 26"
+        fill="none"
+        stroke="#84a8fb"
+        strokeWidth="4"
+        strokeLinecap="round"
+      />
+      <circle cx="60" cy="26" r="4" fill="#4f7cf0" />
     </svg>
   );
 }

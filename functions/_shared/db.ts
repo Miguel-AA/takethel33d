@@ -1,23 +1,47 @@
-import type { Attendee, InsuranceType } from '../../shared/types';
+import type { Attendee, EducationLevel, HousingStatus } from '../../shared/types';
 
 export interface AttendeeRow {
   id: string;
   participant_number: number;
-  nombre: string;
+  first_name: string;
+  last_name: string;
   email: string;
-  telefono: string;
-  insurance_type: InsuranceType;
+  phone: string;
+  highest_level_of_education: EducationLevel | null;
+  age: number | null;
+  zip: string | null;
+  city: string | null;
+  housing_status: HousingStatus | null;
+  owns_vehicle: number | null;
+  is_business_owner: number | null;
   created_at: string;
+}
+
+// Canonical attendee column list, shared by every SELECT/RETURNING so the
+// projection always matches `AttendeeRow`.
+export const ATTENDEE_COLUMNS = `id, participant_number, first_name, last_name, email, phone,
+  highest_level_of_education, age, zip, city, housing_status, owns_vehicle, is_business_owner, created_at`;
+
+function boolFromInt(value: number | null): boolean | undefined {
+  if (value === null || value === undefined) return undefined;
+  return value === 1;
 }
 
 export function rowToAttendee(row: AttendeeRow): Attendee {
   return {
     id: row.id,
     participantNumber: row.participant_number,
-    nombre: row.nombre,
+    firstName: row.first_name,
+    lastName: row.last_name,
     email: row.email,
-    telefono: row.telefono,
-    insuranceType: row.insurance_type,
+    phone: row.phone,
+    highestLevelOfEducation: row.highest_level_of_education ?? undefined,
+    age: row.age ?? undefined,
+    zip: row.zip ?? undefined,
+    city: row.city ?? undefined,
+    housingStatus: row.housing_status ?? undefined,
+    ownsVehicle: boolFromInt(row.owns_vehicle),
+    isBusinessOwner: boolFromInt(row.is_business_owner),
     createdAt: row.created_at,
   };
 }

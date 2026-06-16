@@ -6,6 +6,7 @@ import { Hero } from '../sections/Hero';
 import { Benefits } from '../sections/Benefits';
 import { HowItWorks } from '../sections/HowItWorks';
 import { Features } from '../sections/Features';
+import { WhoWeAre } from '../sections/WhoWeAre';
 import { Trust } from '../sections/Trust';
 import { CTASection } from '../components/CTASection';
 
@@ -18,7 +19,8 @@ export function HomePage() {
       <Benefits copy={c.benefits} />
       <HowItWorks copy={c.how} />
       <Features copy={c.features} />
-      <Trust copy={c.trust} />
+      <WhoWeAre copy={c.whoWeAre} />
+      <Trust copy={c.stats} />
       <CTASection
         title={c.finalCta.title}
         subtitle={c.finalCta.subtitle}

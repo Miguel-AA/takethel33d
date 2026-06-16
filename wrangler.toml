@@ -21,9 +21,6 @@ pages_build_output_dir = "dist"
 RESEND_FROM = "Gifted Grads <noreply@aainsurances.com>"
 ORGANIZER_EMAIL = "info@aainsurances.com"
 
-# CSV of Jotform Form IDs accepted by the webhook (insurance form).
-JOTFORM_ALLOWED_FORM_IDS = "261465857224059"
-
 # D1 binding. Replace `database_id` with the id printed by:
 #   npx wrangler d1 create taketheleed
 [[d1_databases]]

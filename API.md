@@ -274,7 +274,7 @@ The most recent draw result, so the dashboard can render it on reload.
 The real HTML + plaintext bodies live in [`functions/_shared/emails.ts`](./functions/_shared/emails.ts):
 
 - `organizerEmail(attendee)` — sent to `env.ORGANIZER_EMAIL` after each registration. Includes the padded participant number and every attendee field in a styled HTML table.
-- `winnerEmail(attendee)` — sent to the winner after a raffle draw. Includes a congratulations message, the winning participant number in large type, and instructions to reply to claim the iPad.
+- `winnerEmail(attendee)` — sent to the winner after a raffle draw. Includes a congratulations message, the winning participant number in large type, and instructions to reply to claim the gift card.
 
 Both templates HTML-escape user-provided values and ship a plaintext fallback alongside the HTML. Email delivery uses Resend's `POST https://api.resend.com/emails` endpoint with `Authorization: Bearer ${RESEND_API_KEY}`. Send failures are non-fatal — they degrade gracefully (the registration succeeds, `emailSent: false` is returned for raffle draws).
 

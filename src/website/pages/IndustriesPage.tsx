@@ -1,10 +1,10 @@
-// Industries — "/industries". Shows the service applies to many kinds of
-// business. Generic copy only — no real client names.
+// Industries — "/industries". A full marketing page: hero, the industries we
+// support (3 broad categories), how we adapt (3), and a closing CTA to /events.
+// Generic copy only — no real client names.
 import { useLandingCopy } from '../useLandingCopy';
-import { Icon } from '../icons';
 import { PageHero } from '../components/PageHero';
+import { CardSection } from '../components/CardSection';
 import { CTASection } from '../components/CTASection';
-import { Reveal } from '../components/Reveal';
 
 export function IndustriesPage() {
   const p = useLandingCopy().pages.industries;
@@ -18,36 +18,35 @@ export function IndustriesPage() {
         titleEm={p.hero.titleEm}
         subtitle={p.hero.subtitle}
         primaryLabel={p.hero.ctaPrimary}
-        primaryTo="/contact"
+        primaryTo="/events"
         secondaryLabel={p.hero.ctaSecondary}
-        secondaryTo="/benefits"
+        secondaryTo="/how-it-works"
         proof={p.hero.proof}
       />
 
-      <section
-        aria-labelledby="industries-page-title"
-        className="section-x py-12 lg:py-16"
-      >
-        <Reveal as="ul" stagger className="grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
-          {p.items.map((item) => (
-            <li key={item.title} className="card p-6">
-              <span className="grid h-12 w-12 place-items-center rounded-lg border border-brand-400/30 bg-brand-500/10 text-brand-600">
-                <Icon name={item.icon} className="h-6 w-6" />
-              </span>
-              <h3 className="mt-4 text-base font-semibold text-slate-900">{item.title}</h3>
-              <p className="mt-2 text-sm leading-6 text-slate-700">{item.body}</p>
-            </li>
-          ))}
-        </Reveal>
-      </section>
+      <CardSection
+        id="industries-list"
+        kicker={p.industries.kicker}
+        title={p.industries.title}
+        subtitle={p.industries.subtitle}
+        items={p.industries.items}
+      />
+
+      <CardSection
+        id="industries-adapt"
+        kicker={p.adapt.kicker}
+        title={p.adapt.title}
+        subtitle={p.adapt.subtitle}
+        items={p.adapt.items}
+      />
 
       <CTASection
         title={p.cta.title}
         subtitle={p.cta.subtitle}
         primaryLabel={p.cta.primary}
-        primaryTo="/contact"
+        primaryTo="/events"
         secondaryLabel={p.cta.secondary}
-        secondaryTo="/how-it-works"
+        secondaryTo="/contact"
       />
     </>
   );

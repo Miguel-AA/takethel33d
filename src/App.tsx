@@ -23,6 +23,7 @@ import { HomePage } from './website/pages/HomePage';
 import { BenefitsPage } from './website/pages/BenefitsPage';
 import { HowItWorksPage } from './website/pages/HowItWorksPage';
 import { IndustriesPage } from './website/pages/IndustriesPage';
+import { AboutUsPage } from './website/pages/AboutUsPage';
 import { PricingPage } from './website/pages/PricingPage';
 import { ContactPage } from './website/pages/ContactPage';
 import { clearToken } from './lib/auth';
@@ -35,6 +36,7 @@ const MARKETING_PATHS = new Set([
   '/benefits',
   '/how-it-works',
   '/industries',
+  '/about-us',
   '/pricing',
   '/contact',
 ]);
@@ -86,8 +88,9 @@ function VideoBackground() {
           <source src="/taketheleedbg.mp4" type="video/mp4" />
         </video>
       )}
-      {/* Very light frosted-glass wall over the video — faint blur + tint. */}
-      <div className="absolute inset-0 bg-white/5 backdrop-blur-[2px]" />
+      {/* Frosted-glass wall over the video — a soft gray tint that reads a touch
+          darker than plain white without dimming the page. */}
+      <div className="absolute inset-0 bg-slate-900/12 backdrop-blur-[2px]" />
     </div>
   );
 }
@@ -116,6 +119,7 @@ function AppLayout() {
             <Route path="/benefits" element={<BenefitsPage />} />
             <Route path="/how-it-works" element={<HowItWorksPage />} />
             <Route path="/industries" element={<IndustriesPage />} />
+            <Route path="/about-us" element={<AboutUsPage />} />
             <Route path="/pricing" element={<PricingPage />} />
             <Route path="/contact" element={<ContactPage />} />
           </Route>

@@ -20,11 +20,27 @@ export function AttendeeDetailModal({
     return () => document.removeEventListener('keydown', onKey);
   }, [onClose]);
 
+  const yesNo = (v: boolean | undefined) =>
+    v === undefined ? '—' : v ? t('common.yes') : t('common.no');
+
   const rows: Array<[string, string]> = [
-    [t('register.field.nombre'), attendee.nombre],
+    [t('register.field.firstName'), attendee.firstName],
+    [t('register.field.lastName'), attendee.lastName],
     [t('register.field.email'), attendee.email],
-    [t('register.field.telefono'), attendee.telefono],
-    [t('register.field.insuranceType'), t(`insurance.${attendee.insuranceType}`)],
+    [t('register.field.phone'), attendee.phone],
+    [
+      t('register.field.highestLevelOfEducation'),
+      attendee.highestLevelOfEducation ? t(`education.${attendee.highestLevelOfEducation}`) : '—',
+    ],
+    [t('register.field.age'), attendee.age !== undefined ? String(attendee.age) : '—'],
+    [t('register.field.zip'), attendee.zip ?? '—'],
+    [t('register.field.city'), attendee.city ?? '—'],
+    [
+      t('register.field.housingStatus'),
+      attendee.housingStatus ? t(`housing.${attendee.housingStatus}`) : '—',
+    ],
+    [t('register.field.ownsVehicle'), yesNo(attendee.ownsVehicle)],
+    [t('register.field.isBusinessOwner'), yesNo(attendee.isBusinessOwner)],
     [t('dashboard.table.createdAt'), formatDateTime(attendee.createdAt, locale)],
   ];
 

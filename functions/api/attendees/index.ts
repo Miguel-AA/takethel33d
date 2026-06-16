@@ -1,5 +1,5 @@
 import { json } from '../../_shared/responses';
-import { rowToAttendeeIso, type AttendeeRow } from '../../_shared/db';
+import { ATTENDEE_COLUMNS, rowToAttendeeIso, type AttendeeRow } from '../../_shared/db';
 
 type Env = { DB: D1Database };
 
@@ -20,28 +20,27 @@ export const onRequestGet: PagesFunction<Env> = async (ctx) => {
     const like = `%${search}%`;
     const numericSearch = /^\d+$/.test(search) ? Number(search) : null;
 
-    const totalRow = await ctx.env.DB.prepare(
-      `SELECT COUNT(*) AS total FROM attendees
-       WHERE nombre LIKE ? COLLATE NOCASE
+    const where = `WHERE first_name LIKE ? COLLATE NOCASE
+          OR last_name LIKE ? COLLATE NOCASE
+          OR (first_name || ' ' || last_name) LIKE ? COLLATE NOCASE
           OR email LIKE ? COLLATE NOCASE
           OR CAST(participant_number AS TEXT) LIKE ?
-          OR (? IS NOT NULL AND participant_number = ?)`,
+          OR (? IS NOT NULL AND participant_number = ?)`;
+
+    const totalRow = await ctx.env.DB.prepare(
+      `SELECT COUNT(*) AS total FROM attendees ${where}`,
     )
-      .bind(like, like, like, numericSearch, numericSearch)
+      .bind(like, like, like, like, like, numericSearch, numericSearch)
       .first<{ total: number }>();
     total = totalRow?.total ?? 0;
 
     const rs = await ctx.env.DB.prepare(
-      `SELECT id, participant_number, nombre, email, telefono, insurance_type, created_at
-       FROM attendees
-       WHERE nombre LIKE ? COLLATE NOCASE
-          OR email LIKE ? COLLATE NOCASE
-          OR CAST(participant_number AS TEXT) LIKE ?
-          OR (? IS NOT NULL AND participant_number = ?)
+      `SELECT ${ATTENDEE_COLUMNS}
+       FROM attendees ${where}
        ORDER BY participant_number DESC
        LIMIT ? OFFSET ?`,
     )
-      .bind(like, like, like, numericSearch, numericSearch, pageSize, offset)
+      .bind(like, like, like, like, like, numericSearch, numericSearch, pageSize, offset)
       .all<AttendeeRow>();
     items = rs.results ?? [];
   } else {
@@ -51,7 +50,7 @@ export const onRequestGet: PagesFunction<Env> = async (ctx) => {
     total = totalRow?.total ?? 0;
 
     const rs = await ctx.env.DB.prepare(
-      `SELECT id, participant_number, nombre, email, telefono, insurance_type, created_at
+      `SELECT ${ATTENDEE_COLUMNS}
        FROM attendees
        ORDER BY participant_number DESC
        LIMIT ? OFFSET ?`,

@@ -11,10 +11,17 @@ beforeEach(() => {
 });
 
 const sampleRegister = {
-  nombre: 'Carla Pérez',
+  firstName: 'Carla',
+  lastName: 'Pérez',
   email: 'carla@example.com',
-  telefono: '555-1234',
-  insuranceType: 'AUTO' as const,
+  phone: '555-1234',
+  highestLevelOfEducation: 'BACHELORS' as const,
+  age: 30,
+  zip: '33101',
+  city: 'Miami',
+  housingStatus: 'OWNER' as const,
+  ownsVehicle: true,
+  isBusinessOwner: false,
 };
 
 describe('mockApi', () => {
@@ -60,11 +67,11 @@ describe('mockApi', () => {
     expect(after.total).toBe(before.total + 1);
   });
 
-  it('metrics breakdown counts by insurance type', async () => {
+  it('metrics housing breakdown plus unknown sums to the total', async () => {
     const { mockApi } = await freshMockApi();
     await mockApi.login('admin');
     const m = await mockApi.metrics();
-    expect(m.byInsuranceType.HOUSE + m.byInsuranceType.AUTO + m.byInsuranceType.LIFE)
+    expect(m.byHousingStatus.OWNER + m.byHousingStatus.RENTER + m.byHousingStatus.unknown)
       .toBe(m.total);
   });
 
@@ -77,7 +84,7 @@ describe('mockApi', () => {
       participantNumber: reg.participantNumber,
     });
     expect(result.winner.email).toBe('winner@example.com');
-    expect(result.winner.insuranceType).toBe('AUTO');
+    expect(result.winner.firstName).toBe('Carla');
     expect(result.emailSent).toBe(true);
   });
 

@@ -1,4 +1,4 @@
-import type { Attendee, InsuranceType } from '../../shared/types';
+import type { Attendee } from '../../shared/types';
 
 interface SendArgs {
   apiKey: string;
@@ -37,15 +37,8 @@ function pad(n: number): string {
   return n.toString().padStart(3, '0');
 }
 
-function insuranceLabel(t: InsuranceType): string {
-  switch (t) {
-    case 'HOUSE':
-      return 'House';
-    case 'AUTO':
-      return 'Auto';
-    case 'LIFE':
-      return 'Life';
-  }
+export function fullName(attendee: Pick<Attendee, 'firstName' | 'lastName'>): string {
+  return `${attendee.firstName} ${attendee.lastName}`.trim();
 }
 
 function escapeHtml(s: string): string {
@@ -72,7 +65,7 @@ function shellHtml(title: string, body: string): string {
           <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:560px;background:#ffffff;border-radius:14px;box-shadow:0 1px 3px rgba(15,23,42,0.06);overflow:hidden;">
             <tr>
               <td style="background:#1f4fdb;padding:20px 24px;color:#ffffff;font-weight:700;font-size:18px;">
-                Gifted Grads Insurance
+                TAKE THE L33D
               </td>
             </tr>
             <tr>
@@ -98,15 +91,23 @@ export function organizerEmail(attendee: Attendee): {
   html: string;
   text: string;
 } {
-  const subject = `Nuevo lead de seguro #${pad(attendee.participantNumber)} — ${attendee.nombre}`;
+  const name = fullName(attendee);
+  const subject = `Nuevo lead #${pad(attendee.participantNumber)} — ${name}`;
   const rows: Array<[string, string]> = [
     ['Número', `#${pad(attendee.participantNumber)}`],
-    ['Nombre', attendee.nombre],
+    ['Nombre', name],
     ['Email', attendee.email],
-    ['Teléfono', attendee.telefono],
-    ['Tipo de seguro', insuranceLabel(attendee.insuranceType)],
-    ['Recibido', new Date(attendee.createdAt).toLocaleString('es', { timeZone: 'UTC' })],
+    ['Teléfono', attendee.phone],
   ];
+  if (attendee.highestLevelOfEducation) rows.push(['Educación', attendee.highestLevelOfEducation]);
+  if (attendee.age !== undefined) rows.push(['Edad', String(attendee.age)]);
+  if (attendee.zip) rows.push(['Código postal', attendee.zip]);
+  if (attendee.city) rows.push(['Ciudad', attendee.city]);
+  if (attendee.housingStatus) rows.push(['Vivienda', attendee.housingStatus]);
+  if (attendee.ownsVehicle !== undefined) rows.push(['Vehículo propio', attendee.ownsVehicle ? 'Sí' : 'No']);
+  if (attendee.isBusinessOwner !== undefined) rows.push(['Dueño de negocio', attendee.isBusinessOwner ? 'Sí' : 'No']);
+  rows.push(['Recibido', new Date(attendee.createdAt).toLocaleString('es', { timeZone: 'UTC' })]);
+
   const tableRows = rows
     .map(
       ([k, v]) =>
@@ -115,13 +116,13 @@ export function organizerEmail(attendee: Attendee): {
     .join('');
   const html = shellHtml(
     subject,
-    `<p style="margin:0 0 8px;font-size:14px;color:#475569;">Llegó un nuevo lead de seguro:</p>
+    `<p style="margin:0 0 8px;font-size:14px;color:#475569;">Llegó un nuevo lead:</p>
      <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-top:1px solid #e2e8f0;margin-top:12px;">
        ${tableRows}
      </table>
      <p style="margin:24px 0 0;font-size:13px;color:#475569;">Puedes responder este correo directamente para contactar al lead.</p>`,
   );
-  const text = `Nuevo lead de seguro — Gifted Grads Insurance\n\n${rows.map(([k, v]) => `${k}: ${v}`).join('\n')}\n`;
+  const text = `Nuevo lead — TAKE THE L33D\n\n${rows.map(([k, v]) => `${k}: ${v}`).join('\n')}\n`;
   return { subject, html, text };
 }
 
@@ -130,14 +131,15 @@ export function winnerEmail(attendee: Attendee): {
   html: string;
   text: string;
 } {
+  const name = fullName(attendee);
   const number = `#${pad(attendee.participantNumber)}`;
-  const subject = `🎉 ¡Ganaste el iPad! — Gifted Grads`;
+  const subject = `🎉 ¡Ganaste una gift card! — TAKE THE L33D`;
   const html = shellHtml(
     subject,
-    `<p style="margin:0 0 12px;font-size:16px;">¡Felicidades <strong>${escapeHtml(attendee.nombre)}</strong>!</p>
+    `<p style="margin:0 0 12px;font-size:16px;">¡Felicidades <strong>${escapeHtml(name)}</strong>!</p>
      <p style="margin:0 0 16px;font-size:14px;color:#475569;">
        Tu número de participante <strong style="color:#1f4fdb;font-family:monospace;">${number}</strong> fue el seleccionado en la rifa.
-       Has ganado un <strong>iPad</strong>.
+       Has ganado una <strong>gift card</strong>.
      </p>
      <div style="border:2px dashed #93c5fd;background:#eff6ff;padding:16px;border-radius:10px;text-align:center;margin:16px 0;">
        <div style="font-size:12px;color:#1d4ed8;text-transform:uppercase;letter-spacing:0.08em;">Número ganador</div>
@@ -146,15 +148,15 @@ export function winnerEmail(attendee: Attendee): {
      <p style="margin:16px 0 0;font-size:14px;color:#475569;">
        Para reclamar tu premio, responde a este correo con tu nombre completo y un horario disponible para coordinar la entrega.
      </p>
-     <p style="margin:24px 0 0;font-size:14px;">¡Nos vemos pronto!<br/><span style="color:#64748b;">Equipo Gifted Grads</span></p>`,
+     <p style="margin:24px 0 0;font-size:14px;">¡Nos vemos pronto!<br/><span style="color:#64748b;">Equipo TAKE THE L33D</span></p>`,
   );
-  const text = `¡Felicidades ${attendee.nombre}!
+  const text = `¡Felicidades ${name}!
 
-Tu número de participante ${number} fue el seleccionado en la rifa. Has ganado un iPad.
+Tu número de participante ${number} fue el seleccionado en la rifa. Has ganado una gift card.
 
 Para reclamar tu premio, responde a este correo con tu nombre completo y un horario disponible para coordinar la entrega.
 
 ¡Nos vemos pronto!
-Equipo Gifted Grads`;
+Equipo TAKE THE L33D`;
   return { subject, html, text };
 }

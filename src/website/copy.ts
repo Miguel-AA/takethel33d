@@ -17,6 +17,7 @@ interface NavCopy {
   benefits: string;
   how: string;
   industries: string;
+  about: string;
   pricing: string;
   contact: string;
   events: string;
@@ -62,6 +63,10 @@ interface BenefitsCopy {
   kicker: string;
   title: string;
   subtitle: string;
+  /** Royal-blue primary button label (-> /events). */
+  ctaPrimary: string;
+  /** Light-blue secondary button label (-> /how-it-works). */
+  ctaSecondary: string;
   items: IconItem[];
 }
 interface Step {
@@ -86,20 +91,30 @@ interface Metric {
   value: string;
   label: string;
 }
-interface Testimonial {
-  quote: string;
-  author: string;
-  role: string;
+/** Honest, non-fake bridge into a future Google Reviews integration. */
+interface ReviewsBridge {
+  title: string;
+  subtitle: string;
+  note: string;
+  cta: string;
 }
-interface TrustCopy {
+interface StatsCopy {
   kicker: string;
   title: string;
   subtitle: string;
   metrics: Metric[];
-  logosLabel: string;
-  logoPlaceholder: string;
-  testimonials: Testimonial[];
+  reviews: ReviewsBridge;
   disclaimer: string;
+}
+interface WhoWeAreCopy {
+  kicker: string;
+  title: string;
+  subtitle: string;
+  ceoHeading: string;
+  ceoName: string;
+  ceoRole: string;
+  /** CEO bio paragraphs, kept verbatim. */
+  ceoParagraphs: string[];
 }
 interface FinalCtaCopy {
   title: string;
@@ -142,19 +157,42 @@ interface CtaBand {
   primary: string;
   secondary: string;
 }
+/** A heading + up to 3 icon cards. */
+interface CardSection {
+  kicker: string;
+  title: string;
+  subtitle?: string;
+  items: IconItem[];
+}
+/** A heading + up to 3 numbered steps. */
+interface StepSection {
+  kicker: string;
+  title: string;
+  subtitle?: string;
+  steps: Step[];
+}
 interface BenefitsPageCopy {
   hero: PageHero;
-  items: IconItem[];
+  core: CardSection;
+  why: CardSection;
   cta: CtaBand;
 }
 interface HowPageCopy {
   hero: PageHero;
-  steps: Step[];
+  process: StepSection;
+  different: CardSection;
   cta: CtaBand;
 }
 interface IndustriesPageCopy {
   hero: PageHero;
-  items: IconItem[];
+  industries: CardSection;
+  adapt: CardSection;
+  cta: CtaBand;
+}
+interface AboutPageCopy {
+  hero: PageHero;
+  team: { heading: string; body: string };
+  values: CardSection;
   cta: CtaBand;
 }
 interface Plan {
@@ -201,6 +239,7 @@ interface PagesCopy {
   benefits: BenefitsPageCopy;
   how: HowPageCopy;
   industries: IndustriesPageCopy;
+  about: AboutPageCopy;
   pricing: PricingPageCopy;
   contact: ContactPageCopy;
 }
@@ -211,7 +250,8 @@ export interface LandingCopy {
   benefits: BenefitsCopy;
   how: HowCopy;
   features: FeaturesCopy;
-  trust: TrustCopy;
+  stats: StatsCopy;
+  whoWeAre: WhoWeAreCopy;
   finalCta: FinalCtaCopy;
   footer: FooterCopy;
   pages: PagesCopy;
@@ -224,6 +264,7 @@ export const landingCopy: Record<LandingLocale, LandingCopy> = {
       benefits: 'Beneficios',
       how: 'Cómo funciona',
       industries: 'Industrias',
+      about: 'Nosotros',
       pricing: 'Planes',
       contact: 'Contacto',
       events: 'Events',
@@ -232,16 +273,16 @@ export const landingCopy: Record<LandingLocale, LandingCopy> = {
     },
     hero: {
       badge: 'Leads y oportunidades para negocios',
-      titleStart: 'Convierte el interés en',
-      titleEm: 'leads calificados',
-      titleEnd: 'para tu negocio',
+      titleStart: 'Driving Business Growth through',
+      titleEm: 'Quality Leads.',
+      titleEnd: '',
       subtitle:
         'Te entregamos un flujo organizado de leads con intención para que tu equipo dedique su tiempo a cerrar, no a buscar contactos en frío.',
       ctaPrimary: 'Quiero más leads',
       ctaSecondary: 'Ver cómo funciona',
       proof: 'Más reservas, consultas y ventas a partir del interés que ya existe.',
       mockup: {
-        label: 'Pipeline de leads',
+        label: 'L33D Pipeline',
         live: 'En vivo',
         metrics: [
           { label: 'Leads del mes', value: '1,248' },
@@ -258,9 +299,11 @@ export const landingCopy: Record<LandingLocale, LandingCopy> = {
     },
     benefits: {
       kicker: 'Beneficios',
-      title: 'Todo lo que tu negocio necesita para crecer con leads de calidad',
+      title: 'New Business. Consistent Growth. Zero Wasted Time.',
       subtitle:
-        'Menos esfuerzo manual, más oportunidades reales y un proceso que tu equipo realmente quiere usar.',
+        'Stop chasing cold prospects. Get a reliable pipeline of relevant leads and grow on your terms.',
+      ctaPrimary: 'TAKE THE L33D',
+      ctaSecondary: 'Cómo funciona',
       items: [
         {
           icon: 'target',
@@ -273,24 +316,9 @@ export const landingCopy: Record<LandingLocale, LandingCopy> = {
           body: 'Cada lead llega organizado para que respondas mientras el interés sigue caliente.',
         },
         {
-          icon: 'layers',
-          title: 'Todo en un solo lugar',
-          body: 'Centraliza la captación, la organización y el seguimiento sin saltar entre herramientas.',
-        },
-        {
           icon: 'chart',
           title: 'Crecimiento más predecible',
           body: 'Un flujo constante de oportunidades hace más fácil planear y escalar con confianza.',
-        },
-        {
-          icon: 'shield',
-          title: 'Datos protegidos',
-          body: 'Captación segura y manejo transparente que genera confianza desde el primer contacto.',
-        },
-        {
-          icon: 'clock',
-          title: 'Ahorra tiempo',
-          body: 'Deja de perseguir contactos en frío y enfoca las horas en lo que realmente cierra ventas.',
         },
       ],
     },
@@ -346,33 +374,37 @@ export const landingCopy: Record<LandingLocale, LandingCopy> = {
         },
       ],
     },
-    trust: {
-      kicker: 'Confianza',
+    stats: {
+      kicker: 'L33D Stats',
       title: 'Negocios que crecen con datos, no con suposiciones',
-      subtitle: 'Un proceso pensado para demostrar impacto desde el primer mes.',
+      subtitle: 'Una muestra del impacto que un flujo constante de leads puede generar.',
       metrics: [
         { value: '10k+', label: 'Leads procesados' },
         { value: '34%', label: 'Tasa accionable' },
         { value: '<24h', label: 'Tiempo de respuesta' },
         { value: '99.9%', label: 'Disponibilidad' },
       ],
-      logosLabel: 'Tu logo y el de tus clientes podrían ir aquí',
-      logoPlaceholder: 'Tu logo',
-      testimonials: [
-        {
-          quote:
-            '“Pasamos de perseguir contactos fríos a recibir oportunidades listas para cerrar. El cambio fue inmediato.”',
-          author: 'Nombre Apellido',
-          role: 'Cargo · Empresa',
-        },
-        {
-          quote:
-            '“Por fin tenemos visibilidad real de nuestros leads y de qué los convierte. El equipo trabaja con foco.”',
-          author: 'Nombre Apellido',
-          role: 'Cargo · Empresa',
-        },
+      reviews: {
+        title: 'Lo que dicen nuestros clientes',
+        subtitle: 'Pronto verás aquí nuestras reseñas verificadas de Google.',
+        note: 'Las reseñas aparecerán en cuanto conectemos nuestro perfil de Google Business.',
+        cta: 'Verifícanos en Google',
+      },
+      disclaimer: 'Métricas de ejemplo — actualízalas con datos reales antes de producción.',
+    },
+    whoWeAre: {
+      kicker: 'Quiénes somos',
+      title: 'Construido por gente que ha vivido el proceso de ventas',
+      subtitle: 'Conoce a la persona detrás de TAKE THE L33D.',
+      ceoHeading: 'About our CEO',
+      ceoName: 'Onelio Rios',
+      ceoRole: 'Fundador y CEO',
+      ceoParagraphs: [
+        'Onelio Rios founded TAKE THE L33D with one goal — helping businesses grow through smarter, more consistent lead generation.',
+        'His background in B2B sales, where he was recognized as a top 4 sales representative in the country, combined with hands-on experience managing client accounts in the insurance industry, gives him a firsthand understanding of what businesses need to grow. He knows the value of a reliable lead pipeline because he’s depended on one.',
+        'Onelio holds a Business degree from the University of West Florida and a Master’s in Human Resource Management from Delta State University. During graduate school, he competed at the national level with the Future Business Leaders of America Organization in Business Presentation and Job Interview.',
+        'At TAKE THE L33D, we’ve lived the sales process — and built a company to make it easier, faster, and more profitable for businesses like yours.',
       ],
-      disclaimer: 'Métricas, logos y testimonios de ejemplo — editables antes de producción.',
     },
     finalCta: {
       title: '¿Listo para llenar tu agenda con oportunidades reales?',
@@ -381,7 +413,7 @@ export const landingCopy: Record<LandingLocale, LandingCopy> = {
       ctaSecondary: 'Ver cómo funciona',
     },
     footer: {
-      tagline: 'Leads y oportunidades para negocios que quieren crecer.',
+      tagline: 'Driving Business Growth through Quality Leads.',
       columns: [
         {
           title: 'Sitio',
@@ -389,6 +421,7 @@ export const landingCopy: Record<LandingLocale, LandingCopy> = {
             { label: 'Beneficios', to: '/benefits' },
             { label: 'Cómo funciona', to: '/how-it-works' },
             { label: 'Industrias', to: '/industries' },
+            { label: 'Nosotros', to: '/about-us' },
             { label: 'Planes', to: '/pricing' },
           ],
         },
@@ -414,60 +447,62 @@ export const landingCopy: Record<LandingLocale, LandingCopy> = {
       benefits: {
         hero: {
           kicker: 'Beneficios',
-          title: 'Más oportunidades, menos tiempo perdido',
-          titleEm: 'oportunidades',
+          title: 'New Business. Consistent Growth. Zero Wasted Time.',
+          titleEm: 'Consistent Growth.',
           subtitle:
-            'Un flujo constante de leads relevantes ayuda a tu negocio a crecer con menos esfuerzo manual y más foco en cerrar.',
-          ctaPrimary: 'Quiero más leads',
-          ctaSecondary: 'Ver cómo funciona',
+            'Stop chasing cold prospects. Get a reliable pipeline of relevant leads and grow on your terms.',
+          ctaPrimary: 'TAKE THE L33D',
+          ctaSecondary: 'Cómo funciona',
           proof: 'Más reservas, consultas y ventas a partir del interés que ya existe.',
         },
-        items: [
-          {
-            icon: 'chart',
-            title: 'Más oportunidades comerciales',
-            body: 'Mantén un flujo constante de prospectos para que tu negocio no dependa de un solo canal.',
-          },
-          {
-            icon: 'clock',
-            title: 'Menos tiempo buscando clientes',
-            body: 'Deja de perseguir contactos en frío manualmente y recibe oportunidades listas para contactar.',
-          },
-          {
-            icon: 'target',
-            title: 'Prospectos con intención',
-            body: 'Llega a personas que ya mostraron interés, no a listas frías sin contexto.',
-          },
-          {
-            icon: 'bell',
-            title: 'Mejor seguimiento',
-            body: 'Cada lead llega organizado y con contexto para que ninguno se enfríe ni se pierda.',
-          },
-          {
-            icon: 'bolt',
-            title: 'Mayor eficiencia del equipo',
-            body: 'Tu equipo dedica su energía a conversar y cerrar, no a tareas repetitivas de búsqueda.',
-          },
-          {
-            icon: 'layers',
-            title: 'Crecimiento más predecible',
-            body: 'Con un flujo organizado de oportunidades es más fácil planear y escalar con confianza.',
-          },
-          {
-            icon: 'sparkle',
-            title: 'Llena tu agenda',
-            body: 'Genera más reservas, consultas o ventas convirtiendo el interés en conversaciones reales.',
-          },
-          {
-            icon: 'shield',
-            title: 'Enfócate en cerrar',
-            body: 'El negocio se concentra en atender prospectos accionables en lugar de buscar manualmente.',
-          },
-        ],
+        core: {
+          kicker: 'Beneficios principales',
+          title: 'Tres razones por las que los negocios crecen con nosotros',
+          subtitle: 'Menos ruido, más oportunidades reales y tiempo de vuelta para tu equipo.',
+          items: [
+            {
+              icon: 'target',
+              title: 'Leads de calidad, no ruido',
+              body: 'Llega a personas que ya muestran intención para que tu equipo hable con prospectos que valen la pena.',
+            },
+            {
+              icon: 'chart',
+              title: 'Un pipeline constante',
+              body: 'Un flujo predecible de oportunidades mes a mes, sin altibajos.',
+            },
+            {
+              icon: 'clock',
+              title: 'Menos tiempo perdido',
+              body: 'Deja de perseguir contactos en frío y enfoca tus horas en cerrar.',
+            },
+          ],
+        },
+        why: {
+          kicker: 'Por qué importa',
+          title: 'El impacto real en tu negocio',
+          subtitle: 'Un pipeline confiable cambia la forma en que planeas y creces.',
+          items: [
+            {
+              icon: 'sparkle',
+              title: 'Ingresos predecibles',
+              body: 'Cuando las oportunidades llegan de forma constante, el crecimiento se vuelve algo que puedes planear.',
+            },
+            {
+              icon: 'bolt',
+              title: 'Respuesta más rápida',
+              body: 'Leads organizados y listos para contactar te permiten responder mientras el interés está caliente.',
+            },
+            {
+              icon: 'shield',
+              title: 'Confianza para escalar',
+              body: 'Un pipeline confiable te permite invertir en tu equipo y crecer sin adivinar.',
+            },
+          ],
+        },
         cta: {
-          title: '¿Quieres más oportunidades para tu negocio?',
-          subtitle: 'Hablemos de cómo un flujo constante de leads puede ayudarte a crecer.',
-          primary: 'Hablar con el equipo',
+          title: '¿Listo para tomar la iniciativa?',
+          subtitle: 'Convierte el interés en conversaciones reales y crece en tus términos.',
+          primary: 'TAKE THE L33D',
           secondary: 'Ver cómo funciona',
         },
       },
@@ -475,103 +510,165 @@ export const landingCopy: Record<LandingLocale, LandingCopy> = {
         hero: {
           kicker: 'Cómo funciona',
           title: 'De objetivo a cliente, paso a paso',
-          titleEm: 'cliente',
-          subtitle: 'Un proceso simple y transparente para convertir interés en oportunidades accionables.',
-          ctaPrimary: 'Empezar a recibir leads',
+          titleEm: 'paso a paso',
+          subtitle: 'Un proceso simple y transparente que convierte el interés en oportunidades calificadas.',
+          ctaPrimary: 'TAKE THE L33D',
           ctaSecondary: 'Ver planes',
           proof: 'Un proceso claro, transparente y diseñado para escalar contigo.',
         },
-        steps: [
-          {
-            n: '01',
-            title: 'Defines tu objetivo',
-            body: 'Nos dices qué tipo de cliente buscas y qué resultado quieres lograr.',
-          },
-          {
-            n: '02',
-            title: 'Atraemos oportunidades',
-            body: 'Identificamos y captamos personas con interés real en lo que ofreces.',
-          },
-          {
-            n: '03',
-            title: 'Organizamos los leads',
-            body: 'Cada prospecto se ordena con contexto para que sea fácil de priorizar.',
-          },
-          {
-            n: '04',
-            title: 'Recibes prospectos accionables',
-            body: 'Tu negocio recibe leads listos para contactar, sin trabajo manual de búsqueda.',
-          },
-          {
-            n: '05',
-            title: 'Das seguimiento y conviertes',
-            body: 'Te enfocas en conversar y cerrar mientras el flujo de oportunidades continúa.',
-          },
-        ],
+        process: {
+          kicker: 'El proceso',
+          title: 'Tres pasos simples',
+          subtitle: 'Una historia clara, sin complicaciones.',
+          steps: [
+            {
+              n: '01',
+              title: 'Entendemos a tu cliente ideal',
+              body: 'Empezamos por conocer a quién quieres llegar y cómo es un buen lead para ti.',
+            },
+            {
+              n: '02',
+              title: 'Construimos y entregamos un pipeline calificado',
+              body: 'Identificamos y captamos personas con intención real y te las entregamos organizadas y listas.',
+            },
+            {
+              n: '03',
+              title: 'Tú te enfocas en cerrar y crecer',
+              body: 'Tu equipo dedica su tiempo a conversaciones que convierten, no a buscar prospectos.',
+            },
+          ],
+        },
+        different: {
+          kicker: 'Qué lo hace diferente',
+          title: 'No es volumen por volumen',
+          subtitle: 'Targeting más inteligente, entrega constante y menos tiempo perdido.',
+          items: [
+            {
+              icon: 'target',
+              title: 'Targeting más inteligente',
+              body: 'Nos enfocamos en intención y encaje, no en volumen porque sí.',
+            },
+            {
+              icon: 'layers',
+              title: 'Entrega constante',
+              body: 'Una cadencia estable de oportunidades con la que puedes contar.',
+            },
+            {
+              icon: 'clock',
+              title: 'Menos tiempo perdido',
+              body: 'Se acabaron las listas frías: cada lead llega con contexto.',
+            },
+          ],
+        },
         cta: {
           title: '¿Listo para poner el proceso a trabajar?',
-          subtitle: 'Empieza a recibir oportunidades accionables para tu negocio.',
-          primary: 'Empezar ahora',
-          secondary: 'Ver planes',
+          subtitle: 'Empieza a recibir oportunidades calificadas para tu negocio.',
+          primary: 'TAKE THE L33D',
+          secondary: 'Ver beneficios',
         },
       },
       industries: {
         hero: {
           kicker: 'Industrias',
-          title: 'Leads para distintos tipos de negocio',
-          titleEm: 'Leads',
+          title: 'Hecho para negocios que dependen de un pipeline constante',
+          titleEm: 'pipeline constante',
           subtitle:
-            'Si tu negocio necesita más clientes, reservas o consultas, un flujo de leads relevante puede ayudar.',
-          ctaPrimary: 'Quiero leads para mi negocio',
-          ctaSecondary: 'Ver beneficios',
+            'Si tu crecimiento depende de un flujo confiable de oportunidades calificadas, TAKE THE L33D puede ayudar.',
+          ctaPrimary: 'TAKE THE L33D',
+          ctaSecondary: 'Ver cómo funciona',
           proof: 'Leads relevantes para tu tipo de negocio.',
         },
-        items: [
-          {
-            icon: 'calendar',
-            title: 'Eventos',
-            body: 'Llena cupos y capta asistentes interesados para tus próximos eventos.',
-          },
-          {
-            icon: 'briefcase',
-            title: 'Servicios profesionales',
-            body: 'Recibe consultas de clientes que buscan asesoría, despachos o servicios especializados.',
-          },
-          {
-            icon: 'utensils',
-            title: 'Restaurantes y catering',
-            body: 'Genera reservas y solicitudes de catering de clientes en tu zona.',
-          },
-          {
-            icon: 'heart',
-            title: 'Salud y bienestar',
-            body: 'Atrae pacientes y clientes que buscan agendar citas o servicios de bienestar.',
-          },
-          {
-            icon: 'home',
-            title: 'Inmobiliaria',
-            body: 'Conecta con interesados en comprar, rentar o vender propiedades.',
-          },
-          {
-            icon: 'book',
-            title: 'Educación y cursos',
-            body: 'Capta estudiantes y prospectos interesados en tus programas o cursos.',
-          },
-          {
-            icon: 'wrench',
-            title: 'Servicios locales',
-            body: 'Recibe solicitudes de clientes que necesitan servicios en su zona.',
-          },
-          {
-            icon: 'building',
-            title: 'Negocios B2B',
-            body: 'Genera oportunidades comerciales con otras empresas que necesitan tu solución.',
-          },
-        ],
+        industries: {
+          kicker: 'Industrias que apoyamos',
+          title: 'Categorías donde marcamos la diferencia',
+          subtitle: 'Si tu negocio necesita un flujo constante de clientes, encajas aquí.',
+          items: [
+            {
+              icon: 'shield',
+              title: 'Seguros y servicios financieros',
+              body: 'Conecta con personas que buscan activamente cobertura, planeación y protección.',
+            },
+            {
+              icon: 'home',
+              title: 'Servicios para el hogar y negocios locales',
+              body: 'Llega a clientes cercanos que necesitan tu servicio justo cuando lo necesitan.',
+            },
+            {
+              icon: 'briefcase',
+              title: 'Servicios profesionales y B2B',
+              body: 'Genera conversaciones calificadas con los negocios y clientes que quieres.',
+            },
+          ],
+        },
+        adapt: {
+          kicker: 'Cómo nos adaptamos',
+          title: 'La estrategia se ajusta a tu realidad',
+          subtitle: 'El mercado, la ubicación y el tipo de cliente moldean cada estrategia de leads.',
+          items: [
+            {
+              icon: 'target',
+              title: 'Por mercado',
+              body: 'Estrategia de leads ajustada a la demanda y la competencia de tu sector.',
+            },
+            {
+              icon: 'home',
+              title: 'Por ubicación',
+              body: 'Nos enfocamos en las regiones y zonas que importan para tu negocio.',
+            },
+            {
+              icon: 'funnel',
+              title: 'Por tipo de cliente',
+              body: 'Targeting diseñado en torno al cliente exacto que quieres alcanzar.',
+            },
+          ],
+        },
         cta: {
-          title: '¿No ves tu industria?',
-          subtitle: 'El proceso se adapta a la mayoría de negocios que necesitan más clientes. Hablemos.',
-          primary: 'Hablar con el equipo',
+          title: '¿No ves tu industria exacta?',
+          subtitle: 'El proceso se adapta a la mayoría de negocios que necesitan más oportunidades calificadas. Hablemos.',
+          primary: 'TAKE THE L33D',
+          secondary: 'Hablar con el equipo',
+        },
+      },
+      about: {
+        hero: {
+          kicker: 'About Us',
+          title: 'Hacer que el crecimiento sea predecible',
+          titleEm: 'predecible',
+          subtitle:
+            'TAKE THE L33D nació para que los negocios dejen de adivinar de dónde vendrá su próxima oportunidad. Ayudamos a las empresas a crear un camino más confiable hacia el crecimiento con generación de leads más inteligente, pipelines más sólidos y un proceso diseñado para la acción.',
+          ctaPrimary: 'TAKE THE L33D',
+          ctaSecondary: 'Ver cómo funciona',
+          proof: 'Crecimiento más inteligente a través de leads de calidad.',
+        },
+        team: {
+          heading: 'Sobre el equipo de TAKE THE L33D',
+          body: 'Nuestro equipo combina estrategia con mentalidad de ventas, ejecución centrada en el cliente y un entendimiento práctico de lo que un negocio necesita de un pipeline de leads. Nos enfocamos en ayudar a los dueños de negocio a perder menos tiempo persiguiendo contactos en frío y dedicar más tiempo a conectar con oportunidades reales.',
+        },
+        values: {
+          kicker: 'En qué creemos',
+          title: 'Los valores que guían nuestro trabajo',
+          items: [
+            {
+              icon: 'chart',
+              title: 'Crecimiento más inteligente',
+              body: 'Estrategia y targeting por encima de adivinar y del volumen por el volumen.',
+            },
+            {
+              icon: 'layers',
+              title: 'Pipeline constante',
+              body: 'Un flujo estable y predecible de oportunidades reales.',
+            },
+            {
+              icon: 'clock',
+              title: 'Menos tiempo perdido',
+              body: 'Más tiempo cerrando, menos tiempo persiguiendo leads fríos.',
+            },
+          ],
+        },
+        cta: {
+          title: '¿Listo para tomar la iniciativa?',
+          subtitle: 'Conecta con oportunidades reales y crece en tus términos.',
+          primary: 'TAKE THE L33D',
           secondary: 'Ver cómo funciona',
         },
       },
@@ -684,6 +781,7 @@ export const landingCopy: Record<LandingLocale, LandingCopy> = {
       benefits: 'Benefits',
       how: 'How it works',
       industries: 'Industries',
+      about: 'About Us',
       pricing: 'Pricing',
       contact: 'Contact',
       events: 'Events',
@@ -692,16 +790,16 @@ export const landingCopy: Record<LandingLocale, LandingCopy> = {
     },
     hero: {
       badge: 'Leads and opportunities for businesses',
-      titleStart: 'Turn interest into',
-      titleEm: 'qualified leads',
-      titleEnd: 'for your business',
+      titleStart: 'Driving Business Growth through',
+      titleEm: 'Quality Leads.',
+      titleEnd: '',
       subtitle:
         'We deliver an organized flow of intent-driven leads so your team spends its time closing deals, not chasing cold contacts.',
       ctaPrimary: 'Get more leads',
       ctaSecondary: 'See how it works',
       proof: 'More bookings, inquiries and sales from the interest that already exists.',
       mockup: {
-        label: 'Lead Pipeline',
+        label: 'L33D Pipeline',
         live: 'Live',
         metrics: [
           { label: 'Leads this month', value: '1,248' },
@@ -718,9 +816,11 @@ export const landingCopy: Record<LandingLocale, LandingCopy> = {
     },
     benefits: {
       kicker: 'Benefits',
-      title: 'Everything your business needs to grow with quality leads',
+      title: 'New Business. Consistent Growth. Zero Wasted Time.',
       subtitle:
-        'Less manual work, more real opportunities, and a process your team actually wants to use.',
+        'Stop chasing cold prospects. Get a reliable pipeline of relevant leads and grow on your terms.',
+      ctaPrimary: 'TAKE THE L33D',
+      ctaSecondary: 'How it works',
       items: [
         {
           icon: 'target',
@@ -733,24 +833,9 @@ export const landingCopy: Record<LandingLocale, LandingCopy> = {
           body: 'Every lead arrives organized so you respond while interest is still hot.',
         },
         {
-          icon: 'layers',
-          title: 'Everything in one place',
-          body: 'Centralize capture, organization and follow-up without jumping between tools.',
-        },
-        {
           icon: 'chart',
           title: 'More predictable growth',
           body: 'A steady flow of opportunities makes it easier to plan and scale with confidence.',
-        },
-        {
-          icon: 'shield',
-          title: 'Protected data',
-          body: 'Secure capture and transparent handling that build trust from the first touch.',
-        },
-        {
-          icon: 'clock',
-          title: 'Save time',
-          body: 'Stop chasing cold contacts and focus your hours on what actually closes deals.',
         },
       ],
     },
@@ -806,33 +891,37 @@ export const landingCopy: Record<LandingLocale, LandingCopy> = {
         },
       ],
     },
-    trust: {
-      kicker: 'Trust',
+    stats: {
+      kicker: 'L33D Stats',
       title: 'Businesses that grow with data, not guesswork',
-      subtitle: 'A process designed to prove impact from the very first month.',
+      subtitle: 'A snapshot of the impact a steady flow of leads can create.',
       metrics: [
         { value: '10k+', label: 'Leads processed' },
         { value: '34%', label: 'Actionable rate' },
         { value: '<24h', label: 'Response time' },
         { value: '99.9%', label: 'Uptime' },
       ],
-      logosLabel: 'Your logo and your clients’ logos could go here',
-      logoPlaceholder: 'Your logo',
-      testimonials: [
-        {
-          quote:
-            '“We went from chasing cold contacts to receiving opportunities ready to close. The change was immediate.”',
-          author: 'First Last',
-          role: 'Title · Company',
-        },
-        {
-          quote:
-            '“We finally have real visibility into our leads and what converts them. The team works with focus.”',
-          author: 'First Last',
-          role: 'Title · Company',
-        },
+      reviews: {
+        title: 'What our clients say',
+        subtitle: 'Verified Google reviews are coming here soon.',
+        note: 'Reviews will appear once we connect our Google Business profile.',
+        cta: 'Find us on Google',
+      },
+      disclaimer: 'Sample metrics — replace with real numbers before production.',
+    },
+    whoWeAre: {
+      kicker: 'Who we are',
+      title: 'Built by people who have lived the sales process',
+      subtitle: 'Meet the person behind TAKE THE L33D.',
+      ceoHeading: 'About our CEO',
+      ceoName: 'Onelio Rios',
+      ceoRole: 'Founder & CEO',
+      ceoParagraphs: [
+        'Onelio Rios founded TAKE THE L33D with one goal — helping businesses grow through smarter, more consistent lead generation.',
+        'His background in B2B sales, where he was recognized as a top 4 sales representative in the country, combined with hands-on experience managing client accounts in the insurance industry, gives him a firsthand understanding of what businesses need to grow. He knows the value of a reliable lead pipeline because he’s depended on one.',
+        'Onelio holds a Business degree from the University of West Florida and a Master’s in Human Resource Management from Delta State University. During graduate school, he competed at the national level with the Future Business Leaders of America Organization in Business Presentation and Job Interview.',
+        'At TAKE THE L33D, we’ve lived the sales process — and built a company to make it easier, faster, and more profitable for businesses like yours.',
       ],
-      disclaimer: 'Sample metrics, logos and testimonials — editable before production.',
     },
     finalCta: {
       title: 'Ready to fill your pipeline with real opportunities?',
@@ -841,7 +930,7 @@ export const landingCopy: Record<LandingLocale, LandingCopy> = {
       ctaSecondary: 'See how it works',
     },
     footer: {
-      tagline: 'Leads and opportunities for businesses that want to grow.',
+      tagline: 'Driving Business Growth through Quality Leads.',
       columns: [
         {
           title: 'Site',
@@ -849,6 +938,7 @@ export const landingCopy: Record<LandingLocale, LandingCopy> = {
             { label: 'Benefits', to: '/benefits' },
             { label: 'How it works', to: '/how-it-works' },
             { label: 'Industries', to: '/industries' },
+            { label: 'About Us', to: '/about-us' },
             { label: 'Pricing', to: '/pricing' },
           ],
         },
@@ -874,60 +964,62 @@ export const landingCopy: Record<LandingLocale, LandingCopy> = {
       benefits: {
         hero: {
           kicker: 'Benefits',
-          title: 'More opportunities, less wasted time',
-          titleEm: 'opportunities',
+          title: 'New Business. Consistent Growth. Zero Wasted Time.',
+          titleEm: 'Consistent Growth.',
           subtitle:
-            'A steady flow of relevant leads helps your business grow with less manual effort and more focus on closing.',
-          ctaPrimary: 'Get more leads',
-          ctaSecondary: 'See how it works',
+            'Stop chasing cold prospects. Get a reliable pipeline of relevant leads and grow on your terms.',
+          ctaPrimary: 'TAKE THE L33D',
+          ctaSecondary: 'How it works',
           proof: 'More bookings, inquiries and sales from the interest that already exists.',
         },
-        items: [
-          {
-            icon: 'chart',
-            title: 'More sales opportunities',
-            body: 'Keep a steady flow of prospects so your business never depends on a single channel.',
-          },
-          {
-            icon: 'clock',
-            title: 'Less time chasing customers',
-            body: 'Stop manually chasing cold contacts and receive opportunities ready to reach out to.',
-          },
-          {
-            icon: 'target',
-            title: 'Prospects with intent',
-            body: 'Reach people who already showed interest, not cold lists without context.',
-          },
-          {
-            icon: 'bell',
-            title: 'Better follow-up',
-            body: 'Every lead arrives organized and with context so none goes cold or gets lost.',
-          },
-          {
-            icon: 'bolt',
-            title: 'A more efficient team',
-            body: 'Your team spends its energy on conversations and closing, not repetitive prospecting.',
-          },
-          {
-            icon: 'layers',
-            title: 'More predictable growth',
-            body: 'With an organized flow of opportunities it’s easier to plan and scale with confidence.',
-          },
-          {
-            icon: 'sparkle',
-            title: 'Fill your schedule',
-            body: 'Generate more bookings, inquiries or sales by turning interest into real conversations.',
-          },
-          {
-            icon: 'shield',
-            title: 'Focus on closing',
-            body: 'Your business focuses on actionable prospects instead of searching manually.',
-          },
-        ],
+        core: {
+          kicker: 'Core benefits',
+          title: 'Three reasons businesses grow with us',
+          subtitle: 'Less noise, more real opportunities, and time given back to your team.',
+          items: [
+            {
+              icon: 'target',
+              title: 'Quality leads, not noise',
+              body: 'Reach people already showing intent so your team talks to prospects worth their time.',
+            },
+            {
+              icon: 'chart',
+              title: 'A consistent pipeline',
+              body: 'A steady, predictable flow of opportunities month after month — no feast or famine.',
+            },
+            {
+              icon: 'clock',
+              title: 'Less wasted time',
+              body: 'Stop manually chasing cold contacts and focus your hours on closing.',
+            },
+          ],
+        },
+        why: {
+          kicker: 'Why it matters',
+          title: 'The real impact on your business',
+          subtitle: 'A reliable pipeline changes how you plan and how you grow.',
+          items: [
+            {
+              icon: 'sparkle',
+              title: 'Predictable revenue',
+              body: 'When opportunities arrive consistently, growth becomes something you can plan for.',
+            },
+            {
+              icon: 'bolt',
+              title: 'Faster response',
+              body: 'Organized, ready-to-contact leads mean you reach people while interest is hot.',
+            },
+            {
+              icon: 'shield',
+              title: 'Confidence to scale',
+              body: 'A reliable pipeline lets you invest in your team and grow without guessing.',
+            },
+          ],
+        },
         cta: {
-          title: 'Want more opportunities for your business?',
-          subtitle: 'Let’s talk about how a steady flow of leads can help you grow.',
-          primary: 'Talk to the team',
+          title: 'Ready to take the lead?',
+          subtitle: 'Turn interest into real conversations and grow on your terms.',
+          primary: 'TAKE THE L33D',
           secondary: 'See how it works',
         },
       },
@@ -935,103 +1027,165 @@ export const landingCopy: Record<LandingLocale, LandingCopy> = {
         hero: {
           kicker: 'How it works',
           title: 'From goal to customer, step by step',
-          titleEm: 'customer',
-          subtitle: 'A simple, transparent process to turn interest into actionable opportunities.',
-          ctaPrimary: 'Start getting leads',
+          titleEm: 'step by step',
+          subtitle: 'A simple, transparent process that turns interest into qualified opportunities.',
+          ctaPrimary: 'TAKE THE L33D',
           ctaSecondary: 'See pricing',
           proof: 'A clear, transparent process built to scale with you.',
         },
-        steps: [
-          {
-            n: '01',
-            title: 'You define your goal',
-            body: 'Tell us which customers you’re after and what outcome you want to achieve.',
-          },
-          {
-            n: '02',
-            title: 'We attract opportunities',
-            body: 'We identify and capture people with real interest in what you offer.',
-          },
-          {
-            n: '03',
-            title: 'We organize the leads',
-            body: 'Each prospect is sorted with context so it’s easy to prioritize.',
-          },
-          {
-            n: '04',
-            title: 'You receive actionable prospects',
-            body: 'Your business gets leads ready to contact, with no manual prospecting.',
-          },
-          {
-            n: '05',
-            title: 'You follow up and convert',
-            body: 'You focus on conversations and closing while the flow of opportunities continues.',
-          },
-        ],
+        process: {
+          kicker: 'The process',
+          title: 'Three simple steps',
+          subtitle: 'Clear, step-by-step storytelling — no guesswork.',
+          steps: [
+            {
+              n: '01',
+              title: 'We understand your target customer',
+              body: 'We start by learning who you want to reach and what a great lead looks like for you.',
+            },
+            {
+              n: '02',
+              title: 'We build and deliver a qualified pipeline',
+              body: 'We identify and capture people with real intent and hand them to you organized and ready.',
+            },
+            {
+              n: '03',
+              title: 'You focus on closing and growing',
+              body: 'Your team spends its time on conversations that convert, not on prospecting.',
+            },
+          ],
+        },
+        different: {
+          kicker: 'What makes it different',
+          title: 'Not volume for volume’s sake',
+          subtitle: 'Smarter targeting, consistent delivery, and less wasted time.',
+          items: [
+            {
+              icon: 'target',
+              title: 'Smarter targeting',
+              body: 'We focus on intent and fit, not volume for volume’s sake.',
+            },
+            {
+              icon: 'layers',
+              title: 'Consistent delivery',
+              body: 'A steady cadence of opportunities you can count on.',
+            },
+            {
+              icon: 'clock',
+              title: 'Less wasted time',
+              body: 'No more chasing cold lists — every lead arrives with context.',
+            },
+          ],
+        },
         cta: {
           title: 'Ready to put the process to work?',
-          subtitle: 'Start receiving actionable opportunities for your business.',
-          primary: 'Start now',
-          secondary: 'View pricing',
+          subtitle: 'Start receiving qualified opportunities for your business.',
+          primary: 'TAKE THE L33D',
+          secondary: 'See the benefits',
         },
       },
       industries: {
         hero: {
           kicker: 'Industries',
-          title: 'Leads for many kinds of business',
-          titleEm: 'Leads',
+          title: 'Built for businesses that run on a steady pipeline',
+          titleEm: 'steady pipeline',
           subtitle:
-            'If your business needs more customers, bookings or inquiries, a flow of relevant leads can help.',
-          ctaPrimary: 'Get leads for my business',
-          ctaSecondary: 'See the benefits',
+            'If your growth depends on a reliable flow of qualified opportunities, TAKE THE L33D can help.',
+          ctaPrimary: 'TAKE THE L33D',
+          ctaSecondary: 'See how it works',
           proof: 'Relevant leads matched to your kind of business.',
         },
-        items: [
-          {
-            icon: 'calendar',
-            title: 'Events',
-            body: 'Fill seats and capture interested attendees for your upcoming events.',
-          },
-          {
-            icon: 'briefcase',
-            title: 'Professional services',
-            body: 'Receive inquiries from clients looking for advisory, firms or specialized services.',
-          },
-          {
-            icon: 'utensils',
-            title: 'Restaurants & catering',
-            body: 'Generate reservations and catering requests from customers in your area.',
-          },
-          {
-            icon: 'heart',
-            title: 'Health & wellness',
-            body: 'Attract patients and clients looking to book appointments or wellness services.',
-          },
-          {
-            icon: 'home',
-            title: 'Real estate',
-            body: 'Connect with people interested in buying, renting or selling properties.',
-          },
-          {
-            icon: 'book',
-            title: 'Education & courses',
-            body: 'Capture students and prospects interested in your programs or courses.',
-          },
-          {
-            icon: 'wrench',
-            title: 'Local services',
-            body: 'Receive requests from customers who need services in their area.',
-          },
-          {
-            icon: 'building',
-            title: 'B2B businesses',
-            body: 'Generate commercial opportunities with other companies that need your solution.',
-          },
-        ],
+        industries: {
+          kicker: 'Industries we support',
+          title: 'Categories where we make a difference',
+          subtitle: 'If your business needs a steady flow of customers, you fit right in.',
+          items: [
+            {
+              icon: 'shield',
+              title: 'Insurance & Financial Services',
+              body: 'Connect with people actively looking for coverage, planning, and protection.',
+            },
+            {
+              icon: 'home',
+              title: 'Home Services & Local Businesses',
+              body: 'Reach nearby customers who need your service right when they need it.',
+            },
+            {
+              icon: 'briefcase',
+              title: 'Professional & B2B Services',
+              body: 'Generate qualified conversations with the businesses and clients you want.',
+            },
+          ],
+        },
+        adapt: {
+          kicker: 'How we adapt',
+          title: 'Strategy that fits your reality',
+          subtitle: 'Market, location, and customer type shape every lead strategy.',
+          items: [
+            {
+              icon: 'target',
+              title: 'By market',
+              body: 'Lead strategy tuned to the demand and competition in your space.',
+            },
+            {
+              icon: 'home',
+              title: 'By location',
+              body: 'We focus on the regions and neighborhoods that matter to your business.',
+            },
+            {
+              icon: 'funnel',
+              title: 'By customer type',
+              body: 'Targeting shaped around the exact customer you’re trying to reach.',
+            },
+          ],
+        },
         cta: {
-          title: 'Don’t see your industry?',
-          subtitle: 'The process adapts to most businesses that need more customers. Let’s talk.',
-          primary: 'Talk to the team',
+          title: 'Don’t see your exact industry?',
+          subtitle: 'The process adapts to most businesses that need more qualified opportunities. Let’s talk.',
+          primary: 'TAKE THE L33D',
+          secondary: 'Talk to the team',
+        },
+      },
+      about: {
+        hero: {
+          kicker: 'About Us',
+          title: 'Making growth predictable',
+          titleEm: 'predictable',
+          subtitle:
+            'TAKE THE L33D was built to help businesses stop guessing where their next opportunity will come from. We help companies create a more reliable path to growth through smarter lead generation, stronger pipelines, and a process designed around action.',
+          ctaPrimary: 'TAKE THE L33D',
+          ctaSecondary: 'See how it works',
+          proof: 'Smarter growth through quality leads.',
+        },
+        team: {
+          heading: 'About the TAKE THE L33D team',
+          body: 'Our team brings together sales-minded strategy, client-focused execution, and a practical understanding of what businesses need from a lead pipeline. We focus on helping business owners spend less time chasing cold prospects and more time connecting with real opportunities.',
+        },
+        values: {
+          kicker: 'What we believe',
+          title: 'The values that drive our work',
+          items: [
+            {
+              icon: 'chart',
+              title: 'Smarter Growth',
+              body: 'Strategy and targeting over guesswork and volume.',
+            },
+            {
+              icon: 'layers',
+              title: 'Consistent Pipeline',
+              body: 'A steady, predictable flow of real opportunities.',
+            },
+            {
+              icon: 'clock',
+              title: 'Less Wasted Time',
+              body: 'More time closing, less time chasing cold leads.',
+            },
+          ],
+        },
+        cta: {
+          title: 'Ready to take the lead?',
+          subtitle: 'Connect with real opportunities and grow on your terms.',
+          primary: 'TAKE THE L33D',
           secondary: 'See how it works',
         },
       },

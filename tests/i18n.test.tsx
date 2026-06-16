@@ -18,15 +18,16 @@ function Probe() {
 }
 
 describe('I18nProvider', () => {
-  it('renders Spanish strings by default and interpolates vars', () => {
+  it('renders Spanish strings for the es locale and interpolates vars', () => {
     localStorage.clear();
+    localStorage.setItem('gg.locale', 'es');
     render(
       <I18nProvider>
         <Probe />
       </I18nProvider>,
     );
     expect(screen.getByTestId('locale').textContent).toBe('es');
-    expect(screen.getByTestId('register').textContent).toMatch(/cotización/i);
+    expect(screen.getByTestId('register').textContent).toMatch(/lista/i);
     expect(screen.getByTestId('interp').textContent).toContain('2');
     expect(screen.getByTestId('interp').textContent).toContain('5');
     expect(screen.getByTestId('interp').textContent).toContain('117');
@@ -43,7 +44,7 @@ describe('I18nProvider', () => {
       screen.getByText('EN').click();
     });
     expect(screen.getByTestId('locale').textContent).toBe('en');
-    expect(screen.getByTestId('register').textContent).toMatch(/quote/i);
+    expect(screen.getByTestId('register').textContent).toMatch(/list/i);
     expect(localStorage.getItem('gg.locale')).toBe('en');
   });
 });

@@ -6,17 +6,25 @@ import {
 } from '../shared/schemas';
 
 const validRegister = {
-  nombre: 'Ana López',
+  firstName: 'Ana',
+  lastName: 'López',
   email: 'ANA@example.com',
-  telefono: '+1 555 123 4567',
-  insuranceType: 'AUTO',
+  phone: '+1 555 123 4567',
+  highestLevelOfEducation: 'BACHELORS',
+  age: 34,
+  zip: '33101',
+  city: 'Miami',
+  housingStatus: 'OWNER',
+  ownsVehicle: true,
+  isBusinessOwner: false,
 };
 
 describe('registerSchema', () => {
   it('accepts a valid payload and normalizes email to lowercase', () => {
     const parsed = registerSchema.parse(validRegister);
     expect(parsed.email).toBe('ana@example.com');
-    expect(parsed.insuranceType).toBe('AUTO');
+    expect(parsed.firstName).toBe('Ana');
+    expect(parsed.housingStatus).toBe('OWNER');
   });
 
   it('rejects malformed emails', () => {
@@ -27,26 +35,56 @@ describe('registerSchema', () => {
 
   it('rejects phone numbers with letters', () => {
     expect(() =>
-      registerSchema.parse({ ...validRegister, telefono: 'abc-123' }),
+      registerSchema.parse({ ...validRegister, phone: 'abc-123' }),
     ).toThrow();
   });
 
-  it('rejects unknown insurance types', () => {
+  it('rejects an invalid zip', () => {
+    expect(() => registerSchema.parse({ ...validRegister, zip: '12' })).toThrow();
+    expect(registerSchema.parse({ ...validRegister, zip: '33101-1234' }).zip).toBe('33101-1234');
+  });
+
+  it('rejects unknown education levels', () => {
     expect(() =>
-      registerSchema.parse({ ...validRegister, insuranceType: 'TRAVEL' }),
+      registerSchema.parse({ ...validRegister, highestLevelOfEducation: 'PHD' }),
     ).toThrow();
   });
 
-  it('accepts HOUSE, AUTO and LIFE', () => {
-    for (const t of ['HOUSE', 'AUTO', 'LIFE'] as const) {
-      const parsed = registerSchema.parse({ ...validRegister, insuranceType: t });
-      expect(parsed.insuranceType).toBe(t);
-    }
+  it('rejects unknown housing status', () => {
+    expect(() =>
+      registerSchema.parse({ ...validRegister, housingStatus: 'SQUATTER' }),
+    ).toThrow();
   });
 
-  it('rejects names that are too short', () => {
+  it('coerces age strings to numbers and enforces bounds', () => {
+    expect(registerSchema.parse({ ...validRegister, age: '40' }).age).toBe(40);
+    expect(() => registerSchema.parse({ ...validRegister, age: 5 })).toThrow();
+  });
+
+  it('accepts booleans as real booleans or "true"/"false" strings', () => {
+    expect(registerSchema.parse({ ...validRegister, ownsVehicle: false }).ownsVehicle).toBe(false);
+    expect(registerSchema.parse({ ...validRegister, ownsVehicle: 'true' }).ownsVehicle).toBe(true);
+    expect(registerSchema.parse({ ...validRegister, isBusinessOwner: 'false' }).isBusinessOwner).toBe(false);
+  });
+
+  it('treats city as optional', () => {
+    const { city: _omit, ...withoutCity } = validRegister;
+    void _omit;
+    expect(() => registerSchema.parse(withoutCity)).not.toThrow();
+  });
+
+  it('requires the yes/no questions (undefined is not silently false)', () => {
+    const { ownsVehicle: _o, ...noVehicle } = validRegister;
+    void _o;
+    expect(() => registerSchema.parse(noVehicle)).toThrow();
+    const { isBusinessOwner: _b, ...noBiz } = validRegister;
+    void _b;
+    expect(() => registerSchema.parse(noBiz)).toThrow();
+  });
+
+  it('rejects an empty first name', () => {
     expect(() =>
-      registerSchema.parse({ ...validRegister, nombre: 'A' }),
+      registerSchema.parse({ ...validRegister, firstName: '' }),
     ).toThrow();
   });
 });

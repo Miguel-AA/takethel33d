@@ -10,9 +10,9 @@
   }
   body {
     @apply text-slate-800 antialiased font-sans;
-    /* Light fallback shown only if the background video fails to load. */
-    background-color: #e9edf2;
-    background-image: linear-gradient(180deg, #ffffff 0%, #eef1f5 42%, #e6e9ef 100%);
+    /* Soft gray fallback shown only if the background video fails to load. */
+    background-color: #d3d8e0;
+    background-image: linear-gradient(180deg, #e7eaef 0%, #dadee5 45%, #ccd2db 100%);
     background-attachment: fixed;
   }
   /* Never let a stray wide element create a horizontal scrollbar on mobile. */
