@@ -10,7 +10,9 @@
     "lint": "eslint . --ext .ts,.tsx",
     "typecheck": "tsc -b",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "coverage": "vitest run --coverage",
+    "bootstrap:admin": "node scripts/bootstrap-admin.ts"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.9.0",

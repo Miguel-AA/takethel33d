@@ -17,6 +17,14 @@ import { RegisterPage } from './routes/RegisterPage';
 import { ConfirmationPage } from './routes/ConfirmationPage';
 import { ManagerLoginPage } from './routes/ManagerLoginPage';
 import { ManagerDashboardPage } from './routes/ManagerDashboardPage';
+import { ManagerAuditPage } from './routes/ManagerAuditPage';
+import { ManagerEventsPage } from './routes/ManagerEventsPage';
+import { ManagerEventNewPage } from './routes/ManagerEventNewPage';
+import { ManagerEventDetailPage } from './routes/ManagerEventDetailPage';
+import { ManagerEventEditPage } from './routes/ManagerEventEditPage';
+import { ManagerEventPrizesPage } from './routes/ManagerEventPrizesPage';
+import { ManagerEventFormBuilderPage } from './routes/ManagerEventFormBuilderPage';
+import { ManagerEventParticipantsPage } from './routes/ManagerEventParticipantsPage';
 import { ProtectedRoute } from './routes/ProtectedRoute';
 import { MarketingLayout } from './website/components/MarketingLayout';
 import { HomePage } from './website/pages/HomePage';
@@ -26,7 +34,9 @@ import { IndustriesPage } from './website/pages/IndustriesPage';
 import { AboutUsPage } from './website/pages/AboutUsPage';
 import { PricingPage } from './website/pages/PricingPage';
 import { ContactPage } from './website/pages/ContactPage';
-import { clearToken } from './lib/auth';
+import { clearLegacyToken } from './lib/auth';
+import { queryKeys } from './lib/queryKeys';
+import { isSessionEnded } from './lib/api';
 
 // Public marketing website routes render their own header (src/website via
 // MarketingLayout), so the app chrome (Header) is hidden on them.
@@ -135,6 +145,72 @@ function AppLayout() {
               </ProtectedRoute>
             }
           />
+          <Route
+            path="/manager/audit"
+            element={
+              <ProtectedRoute>
+                <ManagerAuditPage />
+              </ProtectedRoute>
+            }
+          />
+          {/* Event administration. The public `/events` lead-capture page above
+              is a different, legacy feature and is untouched. */}
+          <Route
+            path="/manager/events"
+            element={
+              <ProtectedRoute>
+                <ManagerEventsPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/manager/events/new"
+            element={
+              <ProtectedRoute>
+                <ManagerEventNewPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/manager/events/:eventId"
+            element={
+              <ProtectedRoute>
+                <ManagerEventDetailPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/manager/events/:eventId/edit"
+            element={
+              <ProtectedRoute>
+                <ManagerEventEditPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/manager/events/:eventId/prizes"
+            element={
+              <ProtectedRoute>
+                <ManagerEventPrizesPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/manager/events/:eventId/form"
+            element={
+              <ProtectedRoute>
+                <ManagerEventFormBuilderPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/manager/events/:eventId/participants"
+            element={
+              <ProtectedRoute>
+                <ManagerEventParticipantsPage />
+              </ProtectedRoute>
+            }
+          />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </main>
@@ -142,35 +218,63 @@ function AppLayout() {
   );
 }
 
-export function App() {
-  const queryClient = useMemo(() => {
-    return new QueryClient({
-      queryCache: new QueryCache({
-        onError: (err) => {
-          if ((err as Error & { status?: number }).status === 401) {
-            clearToken();
-            if (
-              window.location.pathname.startsWith('/manager') &&
-              window.location.pathname !== '/manager/login'
-            ) {
-              window.location.assign('/manager/login');
-            }
-          }
+// One-time cleanup of the bearer token the pre-cookie implementation stored in
+// localStorage. Those tokens can no longer authenticate anything (migration
+// 0005 dropped `manager_sessions`), but a leftover credential-shaped value is
+// exactly what moving to an HttpOnly cookie was meant to eliminate.
+clearLegacyToken();
+
+const SESSION_QUERY_HASH = JSON.stringify(queryKeys.session);
+
+function createQueryClient(): QueryClient {
+  const queryCache = new QueryCache({
+    onError: (err, query) => {
+      // A 401 on ANY admin query (attendees, metrics, raffle) means the session
+      // ended mid-visit: expired, revoked from another device, or the admin was
+      // suspended. Drop the cached session so ProtectedRoute stops rendering
+      // the dashboard.
+      if (!isSessionEnded(err)) return;
+
+      // `setQueryData(key, undefined)` is a NO-OP in React Query v5 — an
+      // undefined value is treated as "no update" — so the stale session would
+      // survive and ProtectedRoute would keep rendering the dashboard.
+      // removeQueries actually evicts it.
+      client.removeQueries({ queryKey: queryKeys.session });
+
+      // The session query redirects through ProtectedRoute instead, and the
+      // login page must never bounce to itself.
+      const onLoginPage = window.location.pathname === '/manager/login';
+      const isSessionQuery = query.queryHash === SESSION_QUERY_HASH;
+      if (
+        !onLoginPage &&
+        !isSessionQuery &&
+        window.location.pathname.startsWith('/manager')
+      ) {
+        window.location.assign('/manager/login');
+      }
+    },
+  });
+
+  const client = new QueryClient({
+    queryCache,
+    defaultOptions: {
+      queries: {
+        retry: (failureCount, err) => {
+          const status = (err as Error & { status?: number }).status;
+          if (status === 401 || status === 404) return false;
+          return failureCount < 2;
         },
-      }),
-      defaultOptions: {
-        queries: {
-          retry: (failureCount, err) => {
-            const status = (err as Error & { status?: number }).status;
-            if (status === 401 || status === 404) return false;
-            return failureCount < 2;
-          },
-          refetchOnWindowFocus: true,
-          staleTime: 1000,
-        },
+        refetchOnWindowFocus: true,
+        staleTime: 1000,
       },
-    });
-  }, []);
+    },
+  });
+
+  return client;
+}
+
+export function App() {
+  const queryClient = useMemo(createQueryClient, []);
 
   return (
     <QueryClientProvider client={queryClient}>

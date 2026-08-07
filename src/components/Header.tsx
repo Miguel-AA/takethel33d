@@ -3,18 +3,26 @@ import clsx from 'clsx';
 import { useTranslation } from '../i18n/I18nProvider';
 import { LanguageToggle } from './LanguageToggle';
 import { Logo } from './Logo';
-import { clearToken, isAuthenticated } from '../lib/auth';
+import { Spinner } from './Spinner';
+import { useSession } from '../hooks/useSession';
+import { useLogout } from '../hooks/useLogout';
 
 export function Header() {
   const { t } = useTranslation();
   const location = useLocation();
   const navigate = useNavigate();
   const onManager = location.pathname.startsWith('/manager');
-  const authed = isAuthenticated();
 
-  function logout() {
-    clearToken();
-    navigate('/manager/login');
+  // Only ask the server who we are on admin routes. Public pages (/events,
+  // /confirmacion) would otherwise fire a guaranteed 401 for every visitor.
+  const session = useSession({ enabled: onManager });
+  const logout = useLogout();
+  const admin = session.data?.admin;
+
+  async function onLogout() {
+    // Revokes the session server-side; the cache is cleared either way.
+    await logout.mutateAsync().catch(() => {});
+    navigate('/manager/login', { replace: true });
   }
 
   const navLinkClass = ({ isActive }: { isActive: boolean }) =>
@@ -59,14 +67,30 @@ export function Header() {
 
         <div className="flex shrink-0 items-center gap-2 sm:gap-3">
           <LanguageToggle />
-          {onManager && authed ? (
-            <button
-              type="button"
-              onClick={logout}
-              className="btn-secondary px-3 text-xs sm:px-5"
-            >
-              {t('nav.logout')}
-            </button>
+          {admin ? (
+            <>
+              {/* Who is acting is now visible in the panel itself. */}
+              <div className="hidden min-w-0 flex-col items-end leading-tight sm:flex">
+                <span className="truncate text-sm font-semibold text-slate-900">
+                  {admin.displayName}
+                </span>
+                <span className="truncate text-xs text-slate-500">{admin.email}</span>
+              </div>
+              <button
+                type="button"
+                onClick={onLogout}
+                disabled={logout.isPending}
+                className="btn-secondary px-3 text-xs sm:px-5"
+              >
+                {logout.isPending ? (
+                  <>
+                    <Spinner /> {t('login.signingOut')}
+                  </>
+                ) : (
+                  t('nav.logout')
+                )}
+              </button>
+            </>
           ) : (
             <Link to="/manager/login" className="btn-secondary px-3 text-xs sm:px-5">
               {t('nav.login')}

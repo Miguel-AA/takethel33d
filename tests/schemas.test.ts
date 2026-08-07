@@ -1,6 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import {
-  loginSchema,
+  ADMIN_PASSWORD_MIN_LENGTH,
+  adminBootstrapSchema,
+  adminLoginSchema,
+  normalizeEmail,
   raffleDrawSchema,
   registerSchema,
 } from '../shared/schemas';
@@ -89,10 +92,82 @@ describe('registerSchema', () => {
   });
 });
 
-describe('loginSchema', () => {
+describe('normalizeEmail', () => {
+  it('trims and lowercases', () => {
+    expect(normalizeEmail('  Ada@Example.COM ')).toBe('ada@example.com');
+    expect(normalizeEmail('already@lower.com')).toBe('already@lower.com');
+  });
+});
+
+describe('adminLoginSchema', () => {
+  it('accepts an email and password, normalizing the email', () => {
+    const parsed = adminLoginSchema.parse({
+      email: '  Ada@Example.COM ',
+      password: 'hunter2',
+    });
+    expect(parsed.email).toBe('ada@example.com');
+    expect(parsed.password).toBe('hunter2');
+  });
+
+  it('requires a valid email', () => {
+    expect(() =>
+      adminLoginSchema.parse({ email: 'not-an-email', password: 'x' }),
+    ).toThrow();
+    expect(() => adminLoginSchema.parse({ email: '', password: 'x' })).toThrow();
+  });
+
   it('requires a non-empty password', () => {
-    expect(loginSchema.parse({ password: 'hunter2' }).password).toBe('hunter2');
-    expect(() => loginSchema.parse({ password: '' })).toThrow();
+    expect(() =>
+      adminLoginSchema.parse({ email: 'a@b.com', password: '' }),
+    ).toThrow();
+  });
+
+  it('does NOT impose a minimum length on login', () => {
+    // Length policy belongs on account creation; an existing account must stay
+    // able to sign in if the policy is tightened later.
+    expect(
+      adminLoginSchema.parse({ email: 'a@b.com', password: 'short' }).password,
+    ).toBe('short');
+  });
+
+  it('strips unknown fields (no mass assignment)', () => {
+    const parsed = adminLoginSchema.parse({
+      email: 'a@b.com',
+      password: 'x',
+      role: 'ADMIN',
+      status: 'ACTIVE',
+    } as Record<string, unknown>);
+    expect(parsed).toEqual({ email: 'a@b.com', password: 'x' });
+  });
+});
+
+describe('adminBootstrapSchema', () => {
+  const valid = {
+    email: 'ada@example.com',
+    displayName: 'Ada Lovelace',
+    password: 'a-strong-password',
+  };
+
+  it('accepts a valid admin', () => {
+    expect(adminBootstrapSchema.parse(valid).displayName).toBe('Ada Lovelace');
+  });
+
+  it('enforces the minimum password length', () => {
+    expect(ADMIN_PASSWORD_MIN_LENGTH).toBe(12);
+    expect(() =>
+      adminBootstrapSchema.parse({ ...valid, password: 'a'.repeat(11) }),
+    ).toThrow();
+    expect(
+      adminBootstrapSchema.parse({ ...valid, password: 'a'.repeat(12) }).password,
+    ).toHaveLength(12);
+  });
+
+  it('requires a non-empty display name', () => {
+    expect(() => adminBootstrapSchema.parse({ ...valid, displayName: '  ' })).toThrow();
+  });
+
+  it('requires a valid email', () => {
+    expect(() => adminBootstrapSchema.parse({ ...valid, email: 'nope' })).toThrow();
   });
 });
 

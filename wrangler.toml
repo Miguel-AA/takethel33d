@@ -4,8 +4,11 @@
 #   - Local dev:        npx wrangler pages dev -- npm run dev
 #   - Apply migrations: npx wrangler d1 migrations apply DB --local   (local)
 #                       npx wrangler d1 migrations apply DB --remote  (production)
-#   - Set secrets:      npx wrangler pages secret put MANAGER_PASSWORD
-#                       npx wrangler pages secret put RESEND_API_KEY
+#   - Set secrets:      npx wrangler pages secret put RESEND_API_KEY
+#   - Create an admin:  npm run bootstrap:admin -- --email you@example.com --name "You"
+#
+# Administrative access uses individual accounts in `admin_users`; the old
+# shared MANAGER_PASSWORD secret is no longer read by any code.
 #
 # The `DB` D1 binding and the `RESEND_FROM` / `ORGANIZER_EMAIL` plain vars
 # can also be configured from the Cloudflare dashboard; this file is the

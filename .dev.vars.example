@@ -1,10 +1,13 @@
 # Local secrets for `wrangler pages dev`. Copy to `.dev.vars` (gitignored)
 # and fill in the values. These are NOT used in production — set the same
 # names in the Cloudflare dashboard as secrets.
+#
+# NOTE: MANAGER_PASSWORD was removed. Administrative access no longer uses a
+# shared password — each administrator has an individual account in the
+# `admin_users` table. Create one with:
+#
+#   npm run bootstrap:admin -- --email you@example.com --name "Your Name"
+#
+# See README.md → "Acceso administrativo".
 
-MANAGER_PASSWORD="changeme"
 RESEND_API_KEY="re_xxxxxxxxxxxxxxxxxxxx"
-
-# Long random secret embedded in the Jotform webhook URL.
-# Generate with: openssl rand -hex 32
-JOTFORM_WEBHOOK_SECRET="replace_with_a_long_random_secret"

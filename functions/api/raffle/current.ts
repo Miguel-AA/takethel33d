@@ -1,5 +1,10 @@
 import { json } from '../../_shared/responses';
-import { ATTENDEE_COLUMNS, rowToAttendeeIso, sqliteToIso, type AttendeeRow } from '../../_shared/db';
+import {
+  qualifiedAttendeeColumns,
+  rowToAttendeeIso,
+  sqliteToIso,
+  type AttendeeRow,
+} from '../../_shared/db';
 
 type Env = { DB: D1Database };
 
@@ -7,11 +12,12 @@ interface JoinedRow extends AttendeeRow {
   drawn_at: string;
 }
 
-// ATTENDEE_COLUMNS is unqualified (no table alias); the attendees table is the
-// only source of those columns in this join, so they resolve unambiguously.
+// The columns MUST be table-qualified: `raffle_draws` also has an `id`, so an
+// unqualified projection makes SQLite reject the statement with
+// "ambiguous column name: id" and this endpoint fails for every request.
 export const onRequestGet: PagesFunction<Env> = async (ctx) => {
   const row = await ctx.env.DB.prepare(
-    `SELECT ${ATTENDEE_COLUMNS},
+    `SELECT ${qualifiedAttendeeColumns('attendees')},
             r.drawn_at AS drawn_at
      FROM raffle_draws r
      JOIN attendees ON attendees.id = r.attendee_id
