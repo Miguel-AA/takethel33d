@@ -362,12 +362,36 @@ describe('one instant, whatever the clock does', () => {
 
     const readings: number[] = [];
     const RealDate = Date;
-    // Local midnight UTC, then one millisecond past it.
-    const instants = [
-      Date.parse('2026-08-07T23:59:59.999Z'),
-      Date.parse('2026-08-08T00:00:00.000Z'),
-      Date.parse('2026-08-09T00:00:00.000Z'),
-    ];
+
+    // The instants are DERIVED from the real clock; writing a calendar date in
+    // here is what broke this test once already. `seedEvent` opens registration
+    // at `now - 1 day`, so a fixed date drifts outside that window as the real
+    // date advances, and the registration is then refused with
+    // REGISTRATION_NOT_STARTED before the property under test is ever reached —
+    // a green test rotting into a red one that blames the wrong thing.
+    //
+    // The next UTC midnight is always strictly after now and at most one day
+    // ahead, so it always falls inside the seeded window.
+    const midnightAfter = (from: number): number => {
+      const midnight =
+        RealDate.parse(`${new RealDate(from).toISOString().slice(0, 10)}T00:00:00.000Z`) + DAY;
+      // A 29 February boundary would need a birth date of 29 February in a year
+      // that need not have one. The next day is just as good a boundary, is
+      // always a real date, and is still well inside the window.
+      return new RealDate(midnight).toISOString().slice(5, 10) === '02-29'
+        ? midnight + DAY
+        : midnight;
+    };
+
+    const targetMidnight = midnightAfter(RealDate.now());
+    // The civil day that BEGINS at that midnight. The event's zone is UTC (set
+    // above), so the UTC calendar day is the event's calendar day.
+    const targetCivilDate = new RealDate(targetMidnight).toISOString().slice(0, 10);
+    // Turns 21 on `targetCivilDate`: 20 the millisecond before it, 21 from it.
+    const dateOfBirth = `${Number(targetCivilDate.slice(0, 4)) - 21}${targetCivilDate.slice(4)}`;
+
+    // One millisecond before midnight, then midnight, then the day after.
+    const instants = [targetMidnight - 1, targetMidnight, targetMidnight + DAY];
     let index = 0;
 
     class DriftingDate extends RealDate {
@@ -389,21 +413,29 @@ describe('one instant, whatever the clock does', () => {
     globalThis.Date = DriftingDate as unknown as DateConstructor;
 
     try {
-      // Turns 21 on 2026-08-08.
       const result = await service.register(
         event.id,
-        answersFor(version, { date_of_birth: '2005-08-08' }),
+        answersFor(version, { date_of_birth: dateOfBirth }),
         actor(),
       );
       expect(result.ok).toBe(true);
       if (!result.ok) throw new Error('unreachable');
+
+      // The clock genuinely DRIFTED during the operation. Without this the rest
+      // of the assertions could pass simply because nothing ever read the clock
+      // a second time, and the test would be proving nothing.
+      expect(readings.length).toBeGreaterThan(1);
+      expect(readings[0]).toBe(instants[0]);
+      expect(readings[1]).toBe(instants[1]);
 
       // The FIRST reading is the authoritative one; a second reading would have
       // made this person 21 instead of 20.
       expect(result.value.entry.calculatedAge).toBe(20);
       expect(result.value.entry.status).toBe('INELIGIBLE');
       // And the recorded submission moment is that same instant.
-      expect(result.value.entry.submittedAt).toBe('2026-08-07T23:59:59.999Z');
+      expect(result.value.entry.submittedAt).toBe(
+        new RealDate(instants[0]).toISOString(),
+      );
     } finally {
       globalThis.Date = RealDate;
     }
