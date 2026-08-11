@@ -15,6 +15,7 @@ import { I18nProvider } from './i18n/I18nProvider';
 import { Header } from './components/Header';
 import { RegisterPage } from './routes/RegisterPage';
 import { ConfirmationPage } from './routes/ConfirmationPage';
+import { PublicEventPage } from './routes/PublicEventPage';
 import { ManagerLoginPage } from './routes/ManagerLoginPage';
 import { ManagerDashboardPage } from './routes/ManagerDashboardPage';
 import { ManagerAuditPage } from './routes/ManagerAuditPage';
@@ -25,6 +26,9 @@ import { ManagerEventEditPage } from './routes/ManagerEventEditPage';
 import { ManagerEventPrizesPage } from './routes/ManagerEventPrizesPage';
 import { ManagerEventFormBuilderPage } from './routes/ManagerEventFormBuilderPage';
 import { ManagerEventParticipantsPage } from './routes/ManagerEventParticipantsPage';
+import { ManagerEventDrawPage } from './routes/ManagerEventDrawPage';
+import { ManagerEventResultsPage } from './routes/ManagerEventResultsPage';
+import { PublicEventResultsPage } from './routes/PublicEventResultsPage';
 import { ProtectedRoute } from './routes/ProtectedRoute';
 import { MarketingLayout } from './website/components/MarketingLayout';
 import { HomePage } from './website/pages/HomePage';
@@ -105,9 +109,23 @@ function VideoBackground() {
   );
 }
 
+/**
+ * The participant-facing event pages.
+ *
+ * They render no application chrome for the same reason the marketing site does
+ * not: somebody arriving from a printed flyer or a shared link is not an
+ * operator, and offering them a manager login is both confusing and an
+ * invitation to probe. Matched by PREFIX rather than by exact path because the
+ * slug is dynamic.
+ */
+function isPublicEventPath(pathname: string): boolean {
+  return pathname === '/e' || pathname.startsWith('/e/');
+}
+
 function AppLayout() {
   const location = useLocation();
-  const showAppHeader = !MARKETING_PATHS.has(location.pathname);
+  const showAppHeader =
+    !MARKETING_PATHS.has(location.pathname) && !isPublicEventPath(location.pathname);
 
   return (
     <div className="premium-app flex min-h-full flex-col">
@@ -133,9 +151,16 @@ function AppLayout() {
             <Route path="/pricing" element={<PricingPage />} />
             <Route path="/contact" element={<ContactPage />} />
           </Route>
-          {/* The existing lead-acquisition app (previously at "/"). */}
+          {/* The existing lead-acquisition app (previously at "/"). UNTOUCHED:
+              the participant flow below lives under "/e/" precisely so that
+              this route keeps its exact path and its exact behaviour. */}
           <Route path="/events" element={<RegisterPage />} />
           <Route path="/confirmacion" element={<ConfirmationPage />} />
+          {/* The public event flow. Short on purpose — this URL gets printed. */}
+          <Route path="/e/:eventSlug" element={<PublicEventPage />} />
+          {/* The published winners. Outlives the registration page above:
+              an archived event has no public page and its results remain. */}
+          <Route path="/e/:eventSlug/results" element={<PublicEventResultsPage />} />
           <Route path="/manager/login" element={<ManagerLoginPage />} />
           <Route
             path="/manager"
@@ -208,6 +233,26 @@ function AppLayout() {
             element={
               <ProtectedRoute>
                 <ManagerEventParticipantsPage />
+              </ProtectedRoute>
+            }
+          />
+          {/* The draw. A page of its own, not a tab: reaching it should be a
+              decision rather than a reflex. */}
+          <Route
+            path="/manager/events/:eventId/draw"
+            element={
+              <ProtectedRoute>
+                <ManagerEventDrawPage />
+              </ProtectedRoute>
+            }
+          />
+          {/* Results, publication and archiving. A layer above the draw page,
+              which stays as the evidence of the selection itself. */}
+          <Route
+            path="/manager/events/:eventId/results"
+            element={
+              <ProtectedRoute>
+                <ManagerEventResultsPage />
               </ProtectedRoute>
             }
           />

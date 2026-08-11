@@ -89,6 +89,39 @@ function seedActivePrize(eventId: string): void {
     .run(crypto.randomUUID(), eventId, admin.id, admin.id, now, now);
 }
 
+/**
+ * Gives an event one participant who could actually win something.
+ *
+ * Since phase 11, `mark-draw-ready` requires it, exactly as it has required an
+ * active prize since phase 4: DRAW_READY is a one-way door, and declaring an
+ * event ready to draw when nothing could be drawn moves it into a state whose
+ * only exit is a draw guaranteed to refuse.
+ *
+ * `status = 'ELIGIBLE'` AND `overall_eligible = 1` — the certified draw
+ * predicate, both halves of it.
+ */
+function seedDrawEligibleEntry(eventId: string): void {
+  const versionId = seedPublishedForm(eventId);
+  const now = new Date().toISOString();
+  const participantId = crypto.randomUUID();
+  const email = `winner-${participantId}@example.com`;
+  db.raw
+    .prepare(
+      `INSERT INTO participants
+         (id, email, normalized_email, first_name, last_name, created_at, updated_at)
+       VALUES (?, ?, ?, 'Ada', 'Lovelace', ?, ?)`,
+    )
+    .run(participantId, email, email, now, now);
+  db.raw
+    .prepare(
+      `INSERT INTO event_entries
+         (id, event_id, participant_id, form_version_id, status,
+          overall_eligible, submitted_at, created_at, updated_at)
+       VALUES (?, ?, ?, ?, 'ELIGIBLE', 1, ?, ?, ?)`,
+    )
+    .run(crypto.randomUUID(), eventId, participantId, versionId, now, now, now);
+}
+
 /** Forces a row into a state directly, bypassing the service. */
 function forceState(id: string, columns: Record<string, string | number | null>) {
   const assignments = Object.keys(columns).map((c) => `${c} = ?`).join(', ');
@@ -215,6 +248,7 @@ describe('transition matrix is exhaustive and exact', () => {
     // can only come from the state machine itself.
     seedActivePrize(event.id);
     seedPublishedForm(event.id);
+    seedDrawEligibleEntry(event.id);
     forceState(event.id, {
       status: from,
       closed_at: ['CLOSED', 'DRAW_READY', 'DRAW_COMPLETED'].includes(from)
@@ -347,6 +381,7 @@ describe('mark-draw-ready requires a real closure', () => {
     const event = await createDraft(futureWindow());
     seedActivePrize(event.id);
     seedPublishedForm(event.id);
+    seedDrawEligibleEntry(event.id);
     await service.transition(event.id, 'open', actor());
     await service.transition(event.id, 'close', actor());
 

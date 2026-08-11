@@ -36,6 +36,7 @@ import {
 import { checkSlug, slugify, withSuffix } from '../../shared/slug';
 import { EventRepository, type EventInsertValues } from './eventRepository';
 import { PrizeRepository } from './prizeRepository';
+import { EventEntryRepository } from './eventEntryRepository';
 import { FormVersionRepository } from './formVersionRepository';
 import { AuditService } from './auditService';
 import { logger } from './logger';
@@ -270,7 +271,11 @@ export class EventLifecycleService {
    */
   describeActions(
     event: Event,
-    options: { activePrizeUnits?: number; publishedFormValid?: boolean } = {},
+    options: {
+      activePrizeUnits?: number;
+      publishedFormValid?: boolean;
+      drawEligibleCount?: number;
+    } = {},
   ): {
     available: EventTransitionAction[];
     blocked: Array<{ action: EventTransitionAction; missingFields: string[] }>;
@@ -293,6 +298,19 @@ export class EventLifecycleService {
         options.activePrizeUnits < 1
       ) {
         blockers.push('ACTIVE_PRIZE_REQUIRED');
+      }
+
+      // ...and somebody to give it to. Declaring an event ready to draw when
+      // nothing could be drawn moves it into a state whose only exit is a draw
+      // that is guaranteed to refuse — and DRAW_READY is a one-way door, since
+      // no action returns an event to CLOSED. Surfacing it here means the
+      // operator is told before they walk through it rather than afterwards.
+      if (
+        action === 'mark-draw-ready' &&
+        options.drawEligibleCount !== undefined &&
+        options.drawEligibleCount < 1
+      ) {
+        blockers.push('ELIGIBLE_PARTICIPANT_REQUIRED');
       }
 
       // Announcing an event means people will be asked to fill something in.
@@ -611,6 +629,25 @@ export class EventLifecycleService {
           },
         };
       }
+
+      // And a draw with nobody in it is not a draw either. Re-counted at the
+      // moment of the transition for the same reason the units are: the last
+      // eligible participant can be disqualified after the button rendered.
+      //
+      // The count comes from `aggregateByEvent`, so it is the SAME predicate
+      // the draw itself will apply — `status = 'ELIGIBLE' AND
+      // overall_eligible = 1` — rather than a second one that agrees today.
+      const { drawEligible } = await new EventEntryRepository(this.db).aggregateByEvent(id);
+      if (drawEligible < 1) {
+        return {
+          ok: false,
+          failure: {
+            code: 'EVENT_NOT_READY',
+            action,
+            fields: ['ELIGIBLE_PARTICIPANT_REQUIRED'],
+          },
+        };
+      }
     }
 
     // The stored timezone is re-checked here, not just on write: a row edited
@@ -650,8 +687,50 @@ export class EventLifecycleService {
       { onlyIfPreviousChanged: true },
     );
 
-    const results = await this.db.batch([transitionStatement, auditStatement]);
-    if ((results[0]?.meta?.changes ?? 0) === 0) {
+    // The counts above were read before this batch. Between the read and the
+    // commit an administrator can disqualify the last eligible participant, and
+    // DRAW_READY is a state with no way back — so the preconditions are
+    // re-asserted INSIDE the transaction, first, where losing the race writes
+    // nothing instead of stranding the event.
+    const guards =
+      action === 'mark-draw-ready'
+        ? [this.events.abortUnlessDrawableConfigurationStatement(id)]
+        : [];
+    const mutationIndex = guards.length;
+
+    let results: D1Result[];
+    try {
+      results = await this.db.batch([...guards, transitionStatement, auditStatement]);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+
+      // The guard fired: the configuration stopped satisfying the transition
+      // while it was being committed. Nothing was written — the whole batch
+      // rolled back — so this is a clean refusal rather than a failure, and the
+      // caller is told which precondition it was from the CURRENT counts.
+      if (/NOT NULL/i.test(message) && /events\.status/.test(message)) {
+        const units = await new PrizeRepository(this.db).countActiveUnits(id);
+        return {
+          ok: false,
+          failure: {
+            code: 'EVENT_NOT_READY',
+            action,
+            fields: [units < 1 ? 'ACTIVE_PRIZE_REQUIRED' : 'ELIGIBLE_PARTICIPANT_REQUIRED'],
+          },
+        };
+      }
+
+      logger.error('event transition failed', {
+        action: 'EVENT_TRANSITION_FAILED',
+        eventId: id,
+        requestId: actor.requestContext.requestId,
+        // The message only, never the row.
+        errorMessage: message.slice(0, 200),
+      });
+      throw err;
+    }
+
+    if ((results[mutationIndex]?.meta?.changes ?? 0) === 0) {
       return { ok: false, failure: { code: 'EVENT_REVISION_CONFLICT' } };
     }
 

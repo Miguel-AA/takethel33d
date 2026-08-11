@@ -9,7 +9,7 @@ import { onRequest } from '../functions/_middleware';
 import * as entriesIndex from '../functions/api/events/[id]/entries/index';
 import * as entryById from '../functions/api/events/[id]/entries/[entryId]';
 import * as participantsIndex from '../functions/api/events/[id]/participants/index';
-import * as participantById from '../functions/api/events/[id]/participants/[entryId]';
+import * as participantById from '../functions/api/events/[id]/participants/[entryId]/index';
 import { onRequestPost as loginHandler } from '../functions/api/manager/login';
 import { FormDraftService } from '../functions/_shared/formDraftService';
 import { FormPublishingService } from '../functions/_shared/formPublishingService';
@@ -584,9 +584,43 @@ describe('the /participants alias', () => {
     expect(detailed.response.headers.get('Cache-Control')).toBe('no-store');
   });
 
-  it('is the same implementation, not a copy that can drift', () => {
-    expect(participantsIndex.onRequestGet).toBe(entriesIndex.onRequestGet);
-    expect(participantById.onRequestGet).toBe(entryById.onRequestGet);
+  it('is a DIFFERENT surface from /entries, deliberately', () => {
+    // Until phase 10 these were literally the same function. They are not any
+    // more, and the divergence is the feature: `/participants` is the
+    // ADMINISTRATIVE surface — it carries the revision token every mutation
+    // must echo, the disqualification disposition, and server-side filters —
+    // while `/entries` keeps the registration contract the public and admin
+    // creation flows already depend on, unchanged.
+    //
+    // What must NOT diverge is the domain underneath, and that is asserted by
+    // both reading the same tables through the same repository.
+    expect(participantsIndex.onRequestGet).not.toBe(entriesIndex.onRequestGet);
+    expect(participantById.onRequestGet).not.toBe(entryById.onRequestGet);
+  });
+
+  it('the administrative listing carries what the registration listing does not', async () => {
+    await createEntry();
+
+    const path = `/api/events/${event.id}/participants`;
+    const data = await gate(path);
+    const listed = await invoke(
+      participantsIndex.onRequestGet as never,
+      req(path),
+      data,
+      { id: event.id },
+    );
+
+    const body = (await listed.response.json()) as {
+      items: Array<Record<string, unknown>>;
+      administrationAllowed: boolean;
+    };
+    expect(body.items[0].revision).toBe(1);
+    expect(body.items[0].disqualifiedAt).toBeNull();
+    expect(typeof body.administrationAllowed).toBe('boolean');
+    // And still no date of birth or phone number in a table view.
+    const raw = JSON.stringify(body);
+    expect(raw).not.toContain('dateOfBirth');
+    expect(raw).not.toContain('phone');
   });
 
   it('offers no way to create a person', () => {

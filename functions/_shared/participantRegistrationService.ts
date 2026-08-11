@@ -87,13 +87,53 @@ export type EntryFailure =
   | { code: 'DATE_OF_BIRTH_REQUIRED' }
   | { code: 'EVENT_REGISTRATION_CONFIG_CHANGED' }
   | { code: 'PARTICIPANT_ALREADY_ENTERED'; entryId: string | null }
+  // Raised only by an `identityGate` — the public flow's rate limiter, which
+  // can only decide once the address is known. The administrative path never
+  // installs a gate and therefore never produces this.
+  | { code: 'ENTRY_RATE_LIMITED'; retryAfterSeconds: number }
   | { code: 'ENTRY_CREATE_FAILED'; reason: string };
 
 export type EntryResult<T> = { ok: true; value: T } | { ok: false; failure: EntryFailure };
 
+/**
+ * Who is acting.
+ *
+ * `admin` is NULLABLE from phase 9 onward, because a participant registering
+ * themselves is a real actor with no administrative identity. The audit trail
+ * already models this: `audit_logs.actor_admin_id` is nullable with
+ * `ON DELETE SET NULL`, and `AuditService.buildEntry` reads `input.actor?.id ??
+ * null`. A public registration is therefore recorded with the same fidelity as
+ * an administrative one, attributed to a request rather than to a person.
+ */
 interface Actor {
-  admin: AuthenticatedAdmin;
+  admin: AuthenticatedAdmin | null;
   requestContext: RequestContext;
+}
+
+/**
+ * What the caller may influence about how a registration is recorded.
+ *
+ * Deliberately small. Nothing here can change WHAT is decided — the version,
+ * the rules and the verdict are all resolved inside — only how the operation is
+ * deduplicated and whether an extra refusal applies.
+ */
+export interface RegistrationOptions {
+  /**
+   * The public flow's idempotency key. Absent for administrative entries, whose
+   * caller is a person in a form and has no client-side retry to collapse.
+   */
+  submissionId?: string | null;
+  /**
+   * A veto consulted ONCE, after the identity is known and before anything is
+   * written.
+   *
+   * This exists so the public rate limiter can act on the email address without
+   * the handler having to re-resolve the version and re-validate the answers to
+   * discover it. Placing it here rather than in the handler keeps ONE
+   * implementation of the submission pipeline: the gate is a hook in that
+   * pipeline, not a second copy of it.
+   */
+  identityGate?: (normalizedEmail: string) => Promise<EntryFailure | null>;
 }
 
 export interface RegistrationOutcome {
@@ -102,6 +142,12 @@ export interface RegistrationOutcome {
   answerCount: number;
   /** The verdict, as it was decided and as it was written. */
   decision: EligibilityDecision;
+  /**
+   * True when this submission had already been recorded and nothing new was
+   * written — no participant, no entry, no answers, no audit row, and no second
+   * eligibility evaluation. The result is reconstructed from the stored entry.
+   */
+  replayed: boolean;
 }
 
 /**
@@ -287,9 +333,89 @@ export class ParticipantRegistrationService {
     eventId: string,
     answers: readonly SubmittedAnswer[],
     actor: Actor,
+    options: RegistrationOptions = {},
   ): Promise<EntryResult<RegistrationOutcome>> {
     const event = await this.events.findById(eventId);
     if (!event) return { ok: false, failure: { code: 'EVENT_NOT_FOUND' } };
+
+    const resolved = await this.resolveVersion(eventId);
+    if (!resolved.ok) return resolved;
+
+    return this.registerAgainstVersion(event, resolved.value, answers, actor, options);
+  }
+
+  /**
+   * Records a participation against ONE NAMED VERSION.
+   *
+   * This is the public flow's entry point, and the difference from `register`
+   * is the entire reason it exists: `register` asks the event which version it
+   * serves RIGHT NOW, while this one is told which version the participant was
+   * actually shown. Between a page load and a submission an administrator can
+   * publish a new version, and validating the answers against it would judge
+   * somebody on questions they were never asked.
+   *
+   * The version is resolved through `loadVersion`, which is scoped by event —
+   * so a version id belonging to another event resolves to nothing, and a
+   * forged or leaked identifier cannot make one event serve another's form.
+   * That check is not redundant with the token's signature: the signature
+   * proves WE minted the pair, and this proves the pair is still coherent.
+   */
+  async registerWithResolvedVersion(
+    eventId: string,
+    versionId: string,
+    answers: readonly SubmittedAnswer[],
+    actor: Actor,
+    options: RegistrationOptions = {},
+  ): Promise<EntryResult<RegistrationOutcome>> {
+    const event = await this.events.findById(eventId);
+    if (!event) return { ok: false, failure: { code: 'EVENT_NOT_FOUND' } };
+
+    const loaded = await this.versions.loadVersion(eventId, versionId);
+    if (!loaded) {
+      // The version named by a signed token does not belong to this event, or
+      // no longer exists. Reported as a version problem rather than a token
+      // problem: the token verified, so what is wrong is the data behind it.
+      return { ok: false, failure: { code: 'FORM_VERSION_REQUIRED', reason: 'missing' } };
+    }
+
+    const version: ResolvedVersion = {
+      id: loaded.version.id,
+      versionNumber: loaded.version.versionNumber,
+      steps: loaded.version.steps,
+      questions: loaded.version.steps.flatMap((step) => step.questions),
+    };
+
+    return this.registerAgainstVersion(event, version, answers, actor, options);
+  }
+
+  /**
+   * The one pipeline both entry points share.
+   *
+   * Everything that decides anything lives here — window, validation, identity,
+   * eligibility, persistence, audit — so the administrative and public flows
+   * cannot drift into two subtly different sets of rules. The ONLY thing the
+   * callers differ on is which version they arrive with.
+   */
+  private async registerAgainstVersion(
+    event: Event,
+    version: ResolvedVersion,
+    answers: readonly SubmittedAnswer[],
+    actor: Actor,
+    options: RegistrationOptions,
+  ): Promise<EntryResult<RegistrationOutcome>> {
+    const submissionId = options.submissionId ?? null;
+
+    // The replay check comes FIRST, before the window is examined.
+    //
+    // That ordering is deliberate and is the whole meaning of idempotency: a
+    // submission that already succeeded stays succeeded. Somebody whose entry
+    // was recorded at 16:59 and who retries at 17:01, after registration
+    // closed, must be told what happened to their submission — not that they
+    // are too late for something they already did.
+    if (submissionId !== null) {
+      const existing = await this.entries.findByEventAndSubmissionId(event.id, submissionId);
+      if (existing) return this.replay(existing);
+    }
 
     // THE authoritative instant. Captured once and used for the window, the
     // event's local date, the age, `submitted_at` and the in-batch guard — so a
@@ -303,9 +429,7 @@ export class ParticipantRegistrationService {
       return { ok: false, failure: { code: 'EVENT_NOT_ACCEPTING_ENTRIES', reason: window } };
     }
 
-    const resolved = await this.resolveVersion(eventId);
-    if (!resolved.ok) return resolved;
-    const version = resolved.value;
+    const eventId = event.id;
 
     // Every answer is checked against the FROZEN structure — never the draft,
     // which an operator may be editing right now.
@@ -361,6 +485,14 @@ export class ParticipantRegistrationService {
     const rows = this.buildAnswerRows(submission.accepted, at);
     if (!rows.ok) return rows;
 
+    // The identity is known now, and nothing has been written yet — the only
+    // point at which a rate limiter keyed on the email can refuse without
+    // either guessing the address or having already created a participant.
+    if (options.identityGate) {
+      const refusal = await options.identityGate(normalizeEmail(profile.profile.email));
+      if (refusal) return { ok: false, failure: refusal };
+    }
+
     return this.commit(
       event,
       version,
@@ -369,7 +501,55 @@ export class ParticipantRegistrationService {
       verdict.decision,
       at,
       actor,
+      submissionId,
     );
+  }
+
+  /**
+   * Rebuilds the result of a submission that was already recorded.
+   *
+   * Nothing is written and nothing is recomputed: the verdict is read back off
+   * the row it was stored on. That is what makes a retry genuinely idempotent
+   * rather than merely repeatable — re-running the eligibility rule could
+   * legitimately produce a different answer today (the person has had a
+   * birthday, or the organiser changed the minimum age), and returning that
+   * would mean the same submission had two outcomes.
+   */
+  private async replay(entry: EventEntry): Promise<EntryResult<RegistrationOutcome>> {
+    const participant = await this.participants.findById(entry.participantId);
+    if (!participant) {
+      logger.error('replayed entry points at a participant that no longer exists', {
+        action: 'EVENT_ENTRY_PARTICIPANT_MISSING',
+        eventId: entry.eventId,
+        entryId: entry.id,
+      });
+      return { ok: false, failure: { code: 'ENTRY_CREATE_FAILED', reason: 'participant_missing' } };
+    }
+
+    const decision = decisionFromEntry(entry);
+    if (decision === null) {
+      // Only reachable for a row recorded before eligibility existed, which by
+      // definition carries no submission id and so cannot be replayed. Refused
+      // rather than invented: fabricating a verdict for a participation nobody
+      // judged is worse than admitting the row cannot be summarised.
+      logger.error('replayed entry carries no decision to reconstruct', {
+        action: 'EVENT_ENTRY_REPLAY_UNDECIDED',
+        eventId: entry.eventId,
+        entryId: entry.id,
+      });
+      return { ok: false, failure: { code: 'ENTRY_CREATE_FAILED', reason: 'replay_undecided' } };
+    }
+
+    return {
+      ok: true,
+      value: {
+        entry,
+        participant,
+        answerCount: await this.answers.countByEntry(entry.id),
+        decision,
+        replayed: true,
+      },
+    };
   }
 
   /** Serializes every accepted answer, refusing the submission if any cannot be. */
@@ -422,6 +602,7 @@ export class ParticipantRegistrationService {
     decision: EligibilityDecision,
     at: string,
     actor: Actor,
+    submissionId: string | null,
     attempt = 0,
   ): Promise<EntryResult<RegistrationOutcome>> {
     const normalizedEmail = normalizeEmail(profile.email);
@@ -442,6 +623,18 @@ export class ParticipantRegistrationService {
       // ordinary case a clean 409 instead of a caught error.
       const already = await this.entries.findByEventAndParticipant(event.id, existing.id);
       if (already) {
+        // IS IT OURS? An entry already exists for this identity, but if it
+        // carries THIS submission's key then it is not somebody else's
+        // participation — it is this very submission, already recorded.
+        //
+        // Reachable when two simultaneous retries race: the loser re-reads the
+        // winner's identity, and without this check the duplicate-identity
+        // precheck would fire before the submission index ever got a chance,
+        // and a person double-tapping Submit would be told they had already
+        // entered rather than shown their result.
+        if (submissionId !== null && already.submissionId === submissionId) {
+          return this.replay(already);
+        }
         return {
           ok: false,
           failure: { code: 'PARTICIPANT_ALREADY_ENTERED', entryId: already.id },
@@ -455,11 +648,17 @@ export class ParticipantRegistrationService {
       minimumAge: event.minimumAge,
       timezone: event.timezone,
     };
-    const auditActor = {
-      id: actor.admin.id,
-      email: actor.admin.email,
-      displayName: actor.admin.displayName,
-    };
+    // Null for a public registration: there is no administrator behind it. The
+    // audit row still records the action, the entity, the event, the request id
+    // and the hashed IP — it simply has nobody to attribute it to, which is the
+    // truth rather than a gap.
+    const auditActor = actor.admin
+      ? {
+          id: actor.admin.id,
+          email: actor.admin.email,
+          displayName: actor.admin.displayName,
+        }
+      : null;
 
     const statements: D1PreparedStatement[] = [
       // The event must still be accepting entries when this batch RUNS, not
@@ -497,6 +696,11 @@ export class ParticipantRegistrationService {
         // statement that creates the row.
         status: statusForDecision(decision),
         decision,
+        // Travels in the SAME statement that creates the entry, so the unique
+        // index is what arbitrates a concurrent retry. A key written afterwards
+        // would leave a window in which two batches both believed they were
+        // first.
+        submissionId,
         submittedAt: at,
         ipHash: actor.requestContext.ipHash,
         userAgent: actor.requestContext.userAgent,
@@ -555,9 +759,39 @@ export class ParticipantRegistrationService {
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
 
+      // THE SAME SUBMISSION ARRIVED TWICE AT ONCE.
+      //
+      // Checked FIRST, before the duplicate-identity case, because it is the
+      // more specific of the two and they overlap: a genuine double-tap trips
+      // both indexes, and answering ALREADY_ENTERED to somebody retrying their
+      // own submission would be both wrong and alarming.
+      //
+      // Losing this race is not an error. The whole batch — entry, answers and
+      // BOTH audit rows — rolled back, so the winner's write is the only one
+      // that happened, and re-reading it produces exactly the result the winner
+      // received. That is why the audit row is inside the batch rather than
+      // written alongside it.
+      if (
+        submissionId !== null &&
+        /UNIQUE/i.test(message) &&
+        /submission_id/i.test(message)
+      ) {
+        const winner = await this.entries.findByEventAndSubmissionId(
+          event.id,
+          submissionId,
+        );
+        if (winner) return this.replay(winner);
+        return { ok: false, failure: { code: 'ENTRY_CREATE_FAILED', reason: 'submission_race' } };
+      }
+
       // Somebody else registered this identity for this event first.
       if (/UNIQUE/i.test(message) && /event_entries|event_id, participant_id/i.test(message)) {
         const winner = await this.entries.findByEventAndParticipant(event.id, participantId);
+        // Same question as in the precheck above: the row that beat us may be
+        // this submission itself, arriving twice at once.
+        if (submissionId !== null && winner && winner.submissionId === submissionId) {
+          return this.replay(winner);
+        }
         return {
           ok: false,
           failure: { code: 'PARTICIPANT_ALREADY_ENTERED', entryId: winner?.id ?? null },
@@ -577,6 +811,7 @@ export class ParticipantRegistrationService {
             decision,
             at,
             actor,
+            submissionId,
             attempt + 1,
           );
         }
@@ -614,9 +849,34 @@ export class ParticipantRegistrationService {
 
     return {
       ok: true,
-      value: { entry, participant, answerCount: answerRows.length, decision },
+      value: {
+        entry,
+        participant,
+        answerCount: answerRows.length,
+        decision,
+        replayed: false,
+      },
     };
   }
+}
+
+/**
+ * Reads a stored verdict back off an entry.
+ *
+ * The four eligibility columns ARE an `EligibilityDecision` — the mapper
+ * already refuses a row whose status and flags disagree, and migration 0013's
+ * triggers refuse to write one — so this is a projection, not a re-derivation.
+ * Returns null only for a row that carries no verdict at all, which means a
+ * phase 7 participation recorded before eligibility existed.
+ */
+function decisionFromEntry(entry: EventEntry): EligibilityDecision | null {
+  if (entry.overallEligible === null || entry.eligibilityReason === null) return null;
+  return {
+    calculatedAge: entry.calculatedAge,
+    ageEligible: entry.ageEligible,
+    overallEligible: entry.overallEligible,
+    reasonCode: entry.eligibilityReason,
+  };
 }
 
 // ---------------------------------------------------------------------------

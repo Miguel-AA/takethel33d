@@ -37,7 +37,11 @@ async function freshMock(signIn = true) {
   // a query-string suffix would make Vite lose the .ts association.
   const mod = await import('../src/lib/mockApi');
   if (signIn) await mod.mockApi.login(ADMIN_EMAIL, ADMIN_PASSWORD);
-  return { mockApi: mod.mockApi, setStatus: mod.__setMockEventStatus };
+  return {
+    mockApi: mod.mockApi,
+    setStatus: mod.__setMockEventStatus,
+    seedDrawEligibleEntry: mod.__seedMockDrawEligibleEntry,
+  };
 }
 
 let mock: Awaited<ReturnType<typeof freshMock>>;
@@ -177,12 +181,15 @@ describe('transition parity', () => {
     ),
   )('mock agrees with the shared table for %s -> %s', async (from, action) => {
     const event = await mock.mockApi.createEvent({ name: 'Matrix', ...futureWindow() });
-    // Since phase 4, `mark-draw-ready` also requires something to give away,
-    // and since phase 6 `publish`/`open` require a published form. This matrix
-    // is about the LIFECYCLE table, so both preconditions are satisfied up
-    // front and asserted on their own elsewhere.
+    // Since phase 4, `mark-draw-ready` also requires something to give away;
+    // since phase 6 `publish`/`open` require a published form; and since phase
+    // 11 a draw needs somebody in the running. This matrix is about the
+    // LIFECYCLE table, so every one of those preconditions is satisfied up
+    // front and asserted on its own elsewhere.
     if (action === 'mark-draw-ready') {
       await mock.mockApi.createEventPrize(event.id, { name: 'Seeded prize', quantity: 1 });
+      // ...and since phase 11 it also requires somebody eligible to be drawn.
+      mock.seedDrawEligibleEntry(event.id);
     }
     if (action === 'publish' || action === 'open') {
       await seedPublishedForm(event.id);

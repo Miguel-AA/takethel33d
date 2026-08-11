@@ -29,6 +29,7 @@ async function freshMock(signIn = true) {
     mockApi: mod.mockApi,
     setEventStatus: mod.__setMockEventStatus,
     setPrizeStatus: mod.__setMockPrizeStatus,
+    seedDrawEligibleEntry: mod.__seedMockDrawEligibleEntry,
   };
 }
 
@@ -534,6 +535,10 @@ describe('integration parity', () => {
 
   it('requires an active prize before an event may be marked draw-ready', async () => {
     const { event, prize } = await eventWithPrize();
+    // Phase 11 added a SECOND precondition — somebody must be eligible to be
+    // drawn — so it is satisfied up front and asserted on its own below. This
+    // test is about the PRIZE rule.
+    mock.seedDrawEligibleEntry(event.id);
     mock.setEventStatus(event.id, 'CLOSED');
 
     // With one ACTIVE prize it is offered.

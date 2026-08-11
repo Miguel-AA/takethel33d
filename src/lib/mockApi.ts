@@ -76,6 +76,24 @@ import type {
   PublishedFormResponse,
   UpdateEventInput,
   CreateEventEntryResponse,
+  PublicEventResponse,
+  PublicEntryResponse,
+  PublicSubmissionInput,
+  AdminEventParticipant,
+  AdminParticipantListResponse,
+  AdminParticipantSummaryResponse,
+  AdminParticipantDetailResponse,
+  ParticipantMutationResponse,
+  DisqualifyEntryInput,
+  ReinstateEntryInput,
+  DrawAssignment,
+  DrawResponse,
+  DrawStatusResponse,
+  AdminEventResults,
+  AdminResultAssignment,
+  PublishResultsResponse,
+  PublicEventResultsDTO,
+  ResultPublicationSummary,
   EventEntry,
   EventEntryAnswer,
   EventEntryDetail,
@@ -145,6 +163,48 @@ import {
   PRIZES_PER_EVENT_MAX,
 } from '@shared/limits';
 import { isReservedSlug, slugify } from '@shared/slug';
+import {
+  derivePublicEventStatus,
+  publicVisibility,
+  toPublicEventDto,
+  toPublicFormDto,
+  toPublicPrizeDtos,
+} from '@shared/publicEvent';
+import {
+  canDisqualify,
+  canReinstate,
+  describeParticipantAdministrativeActions,
+  eventAllowsParticipantAdministration,
+  isDrawEligible,
+  type ParticipantActionBlocker,
+  type ParticipantEligibilityFilter,
+  type ParticipantStatusFilter,
+} from '@shared/participantAdministration';
+import {
+  TOKEN_PREFIX,
+  checkTokenClaims,
+  decodeTokenPayload,
+  encodeTokenPayload,
+  splitToken,
+} from '@shared/publicFormToken';
+import {
+  DRAW_ALGORITHM_VERSION,
+  eventAllowsDraw,
+  expandPrizeUnits,
+  hashCandidateSet,
+  plannedWinnerCount,
+  type DrawFailureCode,
+} from '@shared/drawLifecycle';
+import { CryptoRandomSource, secureShuffle } from '@shared/secureRandom';
+import {
+  archivingWouldDiscardResults,
+  canArchiveEvent,
+  canPublishResults,
+  formatPublicWinnerName,
+  publicationState,
+} from '@shared/resultLifecycle';
+import { ACTION_SOURCES } from '@shared/eventLifecycle';
+import { DRAW_ASSIGNMENTS_MAX } from '@shared/limits';
 import { ApiError } from './api';
 
 const TOKEN_TTL_MS = 12 * 60 * 60 * 1000;
@@ -548,6 +608,12 @@ function describeMockActions(event: Event) {
     if (action === 'mark-draw-ready' && activeUnitsOf(event.id) < 1) {
       blockers.push('ACTIVE_PRIZE_REQUIRED');
     }
+    // ...and somebody to give it to. DRAW_READY is a one-way door — no action
+    // returns an event to CLOSED — so an operator must be told before they walk
+    // through it, not when the draw refuses afterwards.
+    if (action === 'mark-draw-ready' && drawCandidatesOf(event.id).length < 1) {
+      blockers.push('ELIGIBLE_PARTICIPANT_REQUIRED');
+    }
     // Announcing an event means people will be asked to fill something in — and
     // the pointer must name a version of THIS event, not merely be non-null.
     if (actionRequiresPublishedForm(action) && currentVersionOf(event) === null) {
@@ -815,6 +881,215 @@ interface MockEntry extends EventEntry {
 const participants: Participant[] = [];
 const eventEntries: MockEntry[] = [];
 
+// --- The draw -------------------------------------------------------------
+// One row per event, and the assignments live on it. The backend keeps them in
+// two tables because a foreign key is what stops an assignment outliving its
+// draw; here the containment does the same job, and there is no way to express
+// an assignment without one.
+
+interface MockAssignment {
+  id: string;
+  drawOrder: number;
+  prizeId: string;
+  prizeUnitIndex: number;
+  prizeNameSnapshot: string;
+  prizeDescriptionSnapshot: string | null;
+  entryId: string;
+}
+
+interface MockDraw {
+  id: string;
+  eventId: string;
+  completedAt: string;
+  candidateCount: number;
+  prizeUnitCount: number;
+  assignmentCount: number;
+  algorithmVersion: string;
+  candidateSetHash: string;
+  executedByAdminId: string | null;
+  executedByName: string | null;
+  assignments: MockAssignment[];
+}
+
+const draws: MockDraw[] = [];
+
+// --- Results, publication and archiving (phase 12) -------------------------
+// A publication is a COPY taken at one instant. The mock stores the copy rather
+// than deriving the public page from the live participant and prize records,
+// because deriving it is exactly the mistake the real implementation must not
+// make — and a mock that derived it would teach a builder that renaming a
+// participant rewrites history.
+
+interface MockPublicationItem {
+  id: string;
+  assignmentId: string;
+  drawOrder: number;
+  winnerDisplayNameSnapshot: string;
+  prizeNameSnapshot: string;
+  prizeDescriptionSnapshot: string | null;
+  prizeUnitIndex: number;
+}
+
+interface MockPublication {
+  id: string;
+  eventId: string;
+  drawId: string;
+  publishedAt: string;
+  publishedByAdminId: string | null;
+  publishedByName: string | null;
+  winnerCount: number;
+  items: MockPublicationItem[];
+}
+
+const publications: MockPublication[] = [];
+
+/** The assignments of a draw, joined to the identities that won them. */
+function assignmentsOf(draw: MockDraw): AdminResultAssignment[] {
+  return draw.assignments
+    .slice()
+    .sort((a, b) => a.drawOrder - b.drawOrder || a.id.localeCompare(b.id))
+    .map((assignment) => {
+      const entry = eventEntries.find((candidate) => candidate.id === assignment.entryId)!;
+      const participant = participants.find((p) => p.id === entry.participantId)!;
+      return {
+        drawOrder: assignment.drawOrder,
+        prize: {
+          // The SNAPSHOT the draw took, never the current prize row.
+          nameSnapshot: assignment.prizeNameSnapshot,
+          descriptionSnapshot: assignment.prizeDescriptionSnapshot,
+          unitIndex: assignment.prizeUnitIndex,
+        },
+        winner: {
+          entryId: entry.id,
+          firstName: participant.firstName,
+          lastName: participant.lastName,
+          email: participant.email,
+        },
+      };
+    });
+}
+
+function publicationSummary(publication: MockPublication): ResultPublicationSummary {
+  return {
+    id: publication.id,
+    publishedAt: publication.publishedAt,
+    publishedByAdminId: publication.publishedByAdminId,
+    publishedByName: publication.publishedByName,
+    winnerCount: publication.winnerCount,
+  };
+}
+
+/** The administrative projection, at every stage of the event's life. */
+function projectResults(event: Event): AdminEventResults {
+  const draw = draws.find((candidate) => candidate.eventId === event.id) ?? null;
+  const publication = publications.find((p) => p.eventId === event.id) ?? null;
+
+  const permission = canPublishResults({
+    eventStatus: event.status,
+    hasDraw: draw !== null,
+    hasPublication: publication !== null,
+  });
+
+  return {
+    eventStatus: event.status,
+    draw: draw
+      ? {
+          id: draw.id,
+          completedAt: draw.completedAt,
+          candidateCount: draw.candidateCount,
+          prizeUnitCount: draw.prizeUnitCount,
+          assignmentCount: draw.assignmentCount,
+          algorithmVersion: draw.algorithmVersion,
+          candidateSetHash: draw.candidateSetHash,
+          executedByAdminId: draw.executedByAdminId,
+          executedByName: draw.executedByName,
+        }
+      : null,
+    assignments: draw ? assignmentsOf(draw) : [],
+    // Arithmetic on the DRAW's own numbers, never on today's prize quantities.
+    unassignedUnitCount: draw ? draw.prizeUnitCount - draw.assignmentCount : 0,
+    publication: publication ? publicationSummary(publication) : null,
+    publicationState: publicationState(publication),
+    canPublish: permission.allowed,
+    publishBlocker: permission.allowed ? null : permission.blocker,
+    canArchive: canArchiveEvent({
+      eventStatus: event.status,
+      archiveSources: ACTION_SOURCES.archive,
+    }),
+    archivingWouldDiscardResults: archivingWouldDiscardResults({
+      hasDraw: draw !== null,
+      hasPublication: publication !== null,
+    }),
+    archivedAt: event.archivedAt,
+  };
+}
+
+/**
+ * The entries a draw may consider.
+ *
+ * `isDrawEligible` is the SHARED predicate — the same one the summary counts
+ * and the backend's SQL applies — and the sort makes the input deterministic
+ * before the shuffle, exactly as `ORDER BY id ASC` does there.
+ */
+function drawCandidatesOf(eventId: string): string[] {
+  return eventEntries
+    .filter((entry) => entry.eventId === eventId && isDrawEligible(entry))
+    .map((entry) => entry.id)
+    .sort();
+}
+
+/**
+ * The response shape, assembled from detached copies.
+ *
+ * The prize name comes from the SNAPSHOT on the assignment, never from the live
+ * prize: renaming a prize after the draw must not rewrite what somebody was
+ * told they had won, and a mock that joined to the current row would hide
+ * exactly that bug.
+ */
+function snapshotDraw(event: Event, draw: MockDraw | null): DrawResponse {
+  if (!draw) return { draw: null, assignments: [], eventStatus: event.status };
+
+  const assignments: DrawAssignment[] = draw.assignments
+    .slice()
+    .sort((a, b) => a.drawOrder - b.drawOrder || a.id.localeCompare(b.id))
+    .map((assignment) => {
+      const entry = eventEntries.find((candidate) => candidate.id === assignment.entryId)!;
+      const participant = participants.find((p) => p.id === entry.participantId)!;
+      return {
+        id: assignment.id,
+        drawOrder: assignment.drawOrder,
+        prize: {
+          id: assignment.prizeId,
+          name: assignment.prizeNameSnapshot,
+          description: assignment.prizeDescriptionSnapshot,
+          unitIndex: assignment.prizeUnitIndex,
+        },
+        winner: {
+          entryId: entry.id,
+          firstName: participant.firstName,
+          lastName: participant.lastName,
+          email: participant.email,
+        },
+      };
+    });
+
+  return {
+    draw: {
+      id: draw.id,
+      completedAt: draw.completedAt,
+      candidateCount: draw.candidateCount,
+      prizeUnitCount: draw.prizeUnitCount,
+      assignmentCount: draw.assignmentCount,
+      algorithmVersion: draw.algorithmVersion,
+      candidateSetHash: draw.candidateSetHash,
+      executedByAdminId: draw.executedByAdminId,
+      executedByName: draw.executedByName,
+    },
+    assignments,
+    eventStatus: event.status,
+  };
+}
+
 /** Detached copies, so a cached list cannot mutate under its holder. */
 function snapshotParticipant(participant: Participant): Participant {
   return { ...participant };
@@ -834,6 +1109,12 @@ function snapshotEntry(entry: MockEntry): EventEntry {
     ageEligible: entry.ageEligible,
     overallEligible: entry.overallEligible,
     eligibilityReason: entry.eligibilityReason,
+    submissionId: entry.submissionId,
+    revision: entry.revision,
+    disqualifiedAt: entry.disqualifiedAt,
+    disqualifiedByAdminId: entry.disqualifiedByAdminId,
+    disqualificationReason: entry.disqualificationReason,
+    preDisqualificationStatus: entry.preDisqualificationStatus,
     submittedAt: entry.submittedAt,
     createdAt: entry.createdAt,
     updatedAt: entry.updatedAt,
@@ -1210,6 +1491,78 @@ export function __setMockEventStatus(
   Object.assign(event, overrides);
 }
 
+/**
+ * Test seam: gives an event one participant who could win something.
+ *
+ * Since phase 11, `mark-draw-ready` requires it — and so does a draw. Seeding a
+ * whole public submission just to satisfy a lifecycle precondition would make
+ * every transition test depend on the form machinery, so this writes the two
+ * rows directly, exactly as the backend suites do with raw SQL.
+ *
+ * `status = 'ELIGIBLE'` AND `overallEligible = true` — both halves of the
+ * certified predicate, so `isDrawEligible` agrees.
+ */
+export function __seedMockDrawEligibleEntry(eventId: string): string {
+  const now = mockNow().toISOString();
+  const participantId = crypto.randomUUID();
+  const entryId = crypto.randomUUID();
+
+  const email = `winner-${participantId}@example.com`;
+  participants.push({
+    id: participantId,
+    email,
+    normalizedEmail: normalizeEmail(email),
+    firstName: 'Ada',
+    lastName: 'Lovelace',
+    phone: null,
+    dateOfBirth: null,
+    createdAt: now,
+    updatedAt: now,
+  });
+
+  eventEntries.push({
+    id: entryId,
+    eventId,
+    participantId,
+    formVersionId: currentVersionOf(events.find((e) => e.id === eventId)!)?.id ?? entryId,
+    status: 'ELIGIBLE',
+    calculatedAge: null,
+    ageEligible: null,
+    overallEligible: true,
+    eligibilityReason: null,
+    submissionId: null,
+    revision: 1,
+    disqualifiedAt: null,
+    disqualifiedByAdminId: null,
+    disqualificationReason: null,
+    preDisqualificationStatus: null,
+    submittedAt: now,
+    createdAt: now,
+    updatedAt: now,
+    answers: [],
+  });
+
+  return entryId;
+}
+
+/**
+ * Test seams: rewrite the live source data a publication was built FROM.
+ *
+ * They exist to prove the publication is a snapshot rather than a live join. A
+ * mock that re-derived the public page from these records would show the new
+ * values, which is exactly the mistake the real implementation must not make.
+ */
+export function __renameMockParticipants(firstName: string, lastName: string): void {
+  for (const participant of participants) {
+    participant.firstName = firstName;
+    participant.lastName = lastName;
+  }
+}
+
+export function __renameMockPrizes(name: string): void {
+  for (const prize of prizes) prize.name = name;
+}
+
 function canDeleteMock(event: Event): boolean {
   return (
     event.status === 'DRAFT' &&
@@ -1234,6 +1587,403 @@ function mockActor(id: string) {
 export function __setMockAdminStatus(email: string, status: AdminStatus): void {
   const admin = adminUsers.find((a) => a.normalizedEmail === normalizeEmail(email));
   if (admin) admin.status = status;
+}
+
+// ---------------------------------------------------------------------------
+// Registration core
+//
+// ONE implementation, shared by the administrative method and the public one,
+// mirroring the server where `registerAgainstVersion` is the single pipeline
+// behind both entry points. A mock with two copies of the rules is a mock that
+// teaches a contract the backend does not have.
+// ---------------------------------------------------------------------------
+
+function recordEntry(
+  event: Event,
+  version: EventFormVersion | null,
+  answers: SubmittedAnswer[],
+  submissionId: string | null,
+): { entry: MockEntry; participant: Participant } {
+  if (answers.length > ANSWERS_PER_ENTRY_MAX) {
+    throw new ApiError(400, 'VALIDATION_ERROR', 'Too many answers');
+  }
+
+  // The event must be OPEN and inside its registration window.
+  //
+  // Checked against the REAL clock, deliberately, and not against `mockNow()`.
+  // A pinned clock exists so a test can fix the day an AGE is computed on; the
+  // registration window is seeded relative to the real present, so judging it
+  // against a pinned instant would place every fixture outside its own window.
+  const window = entryWindowProblem(event, new Date().toISOString());
+  if (window !== null) {
+    throw new ApiError(
+      409,
+      'EVENT_NOT_ACCEPTING_ENTRIES',
+      'This event is not accepting entries',
+      { reason: window },
+    );
+  }
+
+  if (!version) {
+    throw new ApiError(
+      409,
+      'FORM_VERSION_REQUIRED',
+      'This event has no published form to fill in',
+      { reason: event.publishedFormVersionId ? 'empty' : 'none' },
+    );
+  }
+
+  // Validated against the FROZEN version, never the draft.
+  const submission = validateSubmission(version.steps, answers);
+  if (!submission.ok) refuseSubmission(submission);
+
+  const profile = extractParticipantProfile(submission.accepted);
+  if (!profile.ok) {
+    throw new ApiError(500, 'FORM_VERSION_INVALID', 'The published form could not be read', {
+      reason: 'system_fields',
+    });
+  }
+
+  const normalized = normalizeEmail(profile.profile.email);
+  const existing = participants.find((candidate) => candidate.normalizedEmail === normalized);
+
+  if (existing) {
+    // Two different dates of birth for one address is never resolved silently.
+    if (
+      existing.dateOfBirth !== null &&
+      profile.profile.dateOfBirth !== null &&
+      existing.dateOfBirth !== profile.profile.dateOfBirth
+    ) {
+      throw new ApiError(
+        409,
+        'PARTICIPANT_IDENTITY_CONFLICT',
+        'This email is already registered with different details',
+        { field: 'dateOfBirth' },
+      );
+    }
+
+    const already = eventEntries.find(
+      (entry) => entry.eventId === event.id && entry.participantId === existing.id,
+    );
+    if (already) {
+      // Unless it is THIS submission arriving twice, in which case it is a
+      // replay rather than a duplicate — the same distinction the server draws.
+      if (submissionId !== null && already.submissionId === submissionId) {
+        return { entry: already, participant: existing };
+      }
+      throw new ApiError(
+        409,
+        'PARTICIPANT_ALREADY_ENTERED',
+        'This person has already entered this event',
+        { entryId: already.id },
+      );
+    }
+  }
+
+  // ONE instant for the whole operation.
+  const now = mockNow();
+  const at = now.toISOString();
+
+  if (!isValidTimeZone(event.timezone)) {
+    throw new ApiError(500, 'FORM_VERSION_INVALID', 'The published form could not be read', {
+      reason: 'event_timezone',
+    });
+  }
+
+  // The SAME shared rules the backend runs.
+  const outcome = evaluateAgeEligibility({
+    minimumAge: event.minimumAge,
+    dateOfBirth: profile.profile.dateOfBirth,
+    formAsksForDateOfBirth: version.steps.some((step) =>
+      step.questions.some((q) => q.systemField === 'DATE_OF_BIRTH' && q.active),
+    ),
+    referenceCivilDate: civilDateInEventZone(now, event.timezone),
+  });
+  if (outcome.kind === 'rejected') {
+    // Broken input, not a person who failed a rule: no entry is recorded.
+    if (outcome.reasonCode === 'FORM_INVALID') {
+      throw new ApiError(500, 'FORM_VERSION_INVALID', 'The published form could not be read', {
+        reason: 'no_date_of_birth',
+      });
+    }
+    if (outcome.reasonCode === 'DATE_OF_BIRTH_REQUIRED') {
+      throw new ApiError(422, 'DATE_OF_BIRTH_REQUIRED', 'This event requires a date of birth');
+    }
+    throw new ApiError(400, 'DATE_OF_BIRTH_INVALID', 'That date of birth is not a possible one', {
+      problem: outcome.problem ?? 'INVALID',
+    });
+  }
+  const decision = outcome.decision;
+
+  let participant: Participant;
+  if (existing) {
+    // A form that did not ask cannot erase what an earlier one recorded.
+    existing.email = profile.profile.email;
+    existing.firstName = profile.profile.firstName;
+    existing.lastName = profile.profile.lastName;
+    existing.phone = profile.profile.phone ?? existing.phone;
+    existing.dateOfBirth = profile.profile.dateOfBirth ?? existing.dateOfBirth;
+    existing.updatedAt = at;
+    participant = existing;
+  } else {
+    participant = {
+      id: crypto.randomUUID(),
+      email: profile.profile.email,
+      normalizedEmail: normalized,
+      firstName: profile.profile.firstName,
+      lastName: profile.profile.lastName,
+      phone: profile.profile.phone,
+      dateOfBirth: profile.profile.dateOfBirth,
+      createdAt: at,
+      updatedAt: at,
+    };
+    participants.push(participant);
+  }
+
+  const entryId = crypto.randomUUID();
+  const entry: MockEntry = {
+    id: entryId,
+    eventId: event.id,
+    participantId: participant.id,
+    formVersionId: version.id,
+    // Born decided, in the same act that creates it.
+    status: statusForDecision(decision),
+    calculatedAge: decision.calculatedAge,
+    ageEligible: decision.ageEligible,
+    overallEligible: decision.overallEligible,
+    eligibilityReason: decision.reasonCode,
+    // NULL for administrative entries; set for public submissions.
+    submissionId,
+    // Born at revision 1 and carrying no administrative disposition: an entry
+    // has not been disposed of until somebody disposes of it.
+    revision: 1,
+    disqualifiedAt: null,
+    disqualifiedByAdminId: null,
+    disqualificationReason: null,
+    preDisqualificationStatus: null,
+    submittedAt: at,
+    createdAt: at,
+    updatedAt: at,
+    answers: buildMockAnswers(entryId, submission.accepted),
+  };
+  eventEntries.push(entry);
+
+  return { entry, participant };
+}
+
+// ---------------------------------------------------------------------------
+// The public form token, in the mock
+//
+// NOT a cryptographic implementation. `crypto.subtle` is unavailable in some of
+// the environments the mock runs in, and a weakened stand-in would teach a
+// security property that does not exist. What the mock reproduces is the
+// OBSERVABLE contract: the same three-segment shape, the same event and version
+// binding, the same expiry, and one indistinguishable refusal for every way a
+// token can be wrong. A test that passes against the mock therefore exercises
+// the same code paths in the UI that the real token will.
+// ---------------------------------------------------------------------------
+
+let publicTokenSecret: string | null = 'mock-public-form-token-secret';
+
+/** Where a real token carries a MAC, a mock token carries this. */
+const MOCK_TOKEN_MARKER = 'mock';
+
+function issueMockToken(eventId: string, versionId: string, nowMs: number): string {
+  // The SAME four claims, in the same order and the same encoding the real
+  // issuer produces, so `decodeTokenPayload` reads it without a special case.
+  const encoded = encodeTokenPayload({
+    e: eventId,
+    v: versionId,
+    i: Math.floor(nowMs / 1000),
+    n: crypto.randomUUID().slice(0, 8),
+  });
+  return `${TOKEN_PREFIX}.${encoded}.${MOCK_TOKEN_MARKER}`;
+}
+
+function verifyMockToken(
+  token: string,
+  expectedEventId: string,
+  nowMs: number,
+): { versionId: string } | null {
+  // EVERY rule except the signature comes from the real verifier's own code —
+  // the size cap, the segment split, the base64url alphabet, the exactly-four
+  // claims, the TTL, the skew and the event binding. A hand-written copy here
+  // would drift, and a mock that accepts a token production refuses is worse
+  // than no mock: the UI gets built against a contract that does not exist.
+  const parts = splitToken(token);
+  if (!parts || parts.prefix !== TOKEN_PREFIX) return null;
+
+  // The one deliberate difference. The mock does no cryptography, so it marks
+  // its tokens instead of signing them — which also means a mock token can
+  // never be mistaken for a real one.
+  if (parts.mac !== MOCK_TOKEN_MARKER) return null;
+
+  const payload = decodeTokenPayload(parts.payload);
+  if (payload === null) return null;
+  if (checkTokenClaims(payload, expectedEventId, nowMs) !== null) return null;
+
+  return { versionId: payload.v };
+}
+
+/** The public result, rebuilt from a stored entry exactly as the server does. */
+function publicResultFor(event: Event, entry: MockEntry): PublicEntryResponse {
+  const eligible = entry.overallEligible === true;
+  return {
+    result: eligible ? 'ELIGIBLE' : 'INELIGIBLE',
+    reason: eligible ? null : entry.eligibilityReason,
+    message: {
+      title: (eligible ? event.confirmationTitle : event.ineligibleTitle) ?? '',
+      body: (eligible ? event.confirmationMessage : event.ineligibleMessage) ?? '',
+    },
+  };
+}
+
+/**
+ * Translates an internal refusal into the public vocabulary.
+ *
+ * The mock's registration core throws the ADMINISTRATIVE errors, exactly as the
+ * server's service returns administrative failures; this is the mock's
+ * equivalent of `publicHttp.registrationRefusal`, and it drops the same details.
+ */
+function toPublicError(error: unknown): ApiError {
+  if (!(error instanceof ApiError)) {
+    return new ApiError(503, 'PUBLIC_EVENT_UNAVAILABLE', 'This event is not available right now');
+  }
+
+  switch (error.code) {
+    case 'PARTICIPANT_ALREADY_ENTERED':
+      // Without the entry id.
+      return new ApiError(409, 'ALREADY_ENTERED', 'An entry already exists for this email address');
+    case 'PARTICIPANT_IDENTITY_CONFLICT':
+      // Without naming the field.
+      return new ApiError(
+        409,
+        'ENTRY_INFORMATION_CONFLICT',
+        'The details provided do not match an existing entry',
+      );
+    case 'EVENT_NOT_ACCEPTING_ENTRIES':
+      return new ApiError(409, 'PUBLIC_EVENT_NOT_OPEN', 'This event is not accepting entries');
+    case 'VALIDATION_ERROR':
+    case 'DUPLICATE_FORM_ANSWER':
+    case 'FORM_ANSWER_UNKNOWN_QUESTION':
+    case 'FORM_ANSWER_NOT_ALLOWED':
+    case 'FORM_ANSWER_INVALID':
+    case 'FORM_REQUIRED_ANSWER_MISSING':
+    case 'DATE_OF_BIRTH_INVALID':
+    case 'DATE_OF_BIRTH_REQUIRED':
+      return new ApiError(
+        400,
+        'INVALID_FORM_SESSION',
+        'This form session is no longer valid; please reload the page',
+      );
+    default:
+      return new ApiError(
+        503,
+        'PUBLIC_EVENT_UNAVAILABLE',
+        'This event is not available right now',
+      );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Participant administration helpers
+// ---------------------------------------------------------------------------
+
+/** Scoped by event: an entry id from another event resolves to a 404. */
+function requireEntry(eventId: string, entryId: string): MockEntry {
+  const entry = eventEntries.find(
+    (candidate) => candidate.id === entryId && candidate.eventId === eventId,
+  );
+  if (!entry) throw new ApiError(404, 'EVENT_ENTRY_NOT_FOUND', 'Entry not found');
+  return entry;
+}
+
+function requireRevision(entry: MockEntry, expected: number): void {
+  if (entry.revision !== expected) {
+    throw new ApiError(
+      409,
+      'ENTRY_REVISION_CONFLICT',
+      'This entry changed since you loaded it',
+      { currentRevision: String(entry.revision) },
+    );
+  }
+}
+
+/** The shared blocker vocabulary, mapped to the same codes the API returns. */
+function blockerError(blocker: ParticipantActionBlocker, eventStatus: string): ApiError {
+  switch (blocker) {
+    case 'EVENT_STATE_FORBIDS':
+      return new ApiError(
+        409,
+        'EVENT_PARTICIPANTS_NOT_EDITABLE',
+        'Participants cannot be administered while the event is in this state',
+        { eventStatus },
+      );
+    case 'ALREADY_DISQUALIFIED':
+      return new ApiError(
+        409,
+        'ENTRY_ALREADY_DISQUALIFIED',
+        'This entry is already disqualified',
+      );
+    case 'NOT_DISQUALIFIED':
+      return new ApiError(409, 'ENTRY_NOT_DISQUALIFIED', 'This entry is not disqualified');
+    case 'NO_RESTORABLE_STATUS':
+      return new ApiError(
+        409,
+        'ENTRY_NO_RESTORABLE_STATUS',
+        'This entry has no previous status to return to',
+      );
+  }
+}
+
+/** Detached copy, so a cached response cannot mutate the store through a caller. */
+function projectAdminParticipant(event: Event, entry: MockEntry): AdminEventParticipant {
+  const participant = participants.find((p) => p.id === entry.participantId)!;
+  const version = formVersions.find((v) => v.id === entry.formVersionId);
+
+  return {
+    entryId: entry.id,
+    entryRevision: entry.revision,
+    participant: {
+      id: participant.id,
+      firstName: participant.firstName,
+      lastName: participant.lastName,
+      email: participant.email,
+      phone: participant.phone,
+      dateOfBirth: participant.dateOfBirth,
+    },
+    entry: {
+      status: entry.status,
+      submittedAt: entry.submittedAt,
+      formVersionId: entry.formVersionId,
+      formVersionNumber: version?.versionNumber ?? 1,
+      calculatedAge: entry.calculatedAge,
+      ageEligible: entry.ageEligible,
+      overallEligible: entry.overallEligible,
+      eligibilityReason: entry.eligibilityReason,
+      disposition:
+        entry.status === 'DISQUALIFIED' &&
+        entry.disqualifiedAt !== null &&
+        entry.disqualificationReason !== null &&
+        entry.preDisqualificationStatus !== null
+          ? {
+              disqualifiedAt: entry.disqualifiedAt,
+              disqualifiedByAdminId: entry.disqualifiedByAdminId,
+              disqualifiedByName:
+                adminUsers.find((a) => a.id === entry.disqualifiedByAdminId)?.displayName ??
+                null,
+              reason: entry.disqualificationReason,
+              preDisqualificationStatus: entry.preDisqualificationStatus,
+            }
+          : null,
+    },
+    answers: entry.answers.map((answer) => ({ ...answer })),
+    actions: describeParticipantAdministrativeActions({
+      eventStatus: event.status,
+      entryStatus: entry.status,
+      preDisqualificationStatus: entry.preDisqualificationStatus,
+    }),
+  };
 }
 
 export const mockApi = {
@@ -1694,6 +2444,15 @@ export const mockApi = {
     if (action === 'mark-draw-ready' && activeUnitsOf(id) < 1) {
       throw new ApiError(409, 'EVENT_NOT_READY', 'No active prize to award', {
         stale: 'ACTIVE_PRIZE_REQUIRED',
+        action,
+      });
+    }
+
+    // Same again for the population: disqualifying the last eligible
+    // participant after the button rendered still blocks the transition.
+    if (action === 'mark-draw-ready' && drawCandidatesOf(id).length < 1) {
+      throw new ApiError(409, 'EVENT_NOT_READY', 'Nobody is eligible to be drawn', {
+        stale: 'ELIGIBLE_PARTICIPANT_REQUIRED',
         action,
       });
     }
@@ -2573,169 +3332,594 @@ export const mockApi = {
     requireAuth();
     seedEvents();
     const event = findEvent(eventId);
-
-    if (answers.length > ANSWERS_PER_ENTRY_MAX) {
-      throw new ApiError(400, 'VALIDATION_ERROR', 'Too many answers');
-    }
-
-    // The event must be OPEN and inside its registration window — the same rule
-    // the public flow will obey, applied here so nothing has to be tightened
-    // later once rows exist that were written under a looser one.
-    const window = entryWindowProblem(event, new Date().toISOString());
-    if (window !== null) {
-      throw new ApiError(
-        409,
-        'EVENT_NOT_ACCEPTING_ENTRIES',
-        'This event is not accepting entries',
-        { reason: window },
-      );
-    }
-
-    // Resolved, not trusted: the pointer must name a version of THIS event that
-    // actually has questions.
-    const version = currentVersionOf(event);
-    if (!version) {
-      throw new ApiError(
-        409,
-        'FORM_VERSION_REQUIRED',
-        'This event has no published form to fill in',
-        { reason: event.publishedFormVersionId ? 'empty' : 'none' },
-      );
-    }
-
-    // Validated against the FROZEN version, never the draft.
-    const submission = validateSubmission(version.steps, answers);
-    if (!submission.ok) refuseSubmission(submission);
-
-    const profile = extractParticipantProfile(submission.accepted);
-    if (!profile.ok) {
-      throw new ApiError(500, 'FORM_VERSION_INVALID', 'The published form could not be read', {
-        reason: 'system_fields',
-      });
-    }
-
-    const normalized = normalizeEmail(profile.profile.email);
-    const existing = participants.find((candidate) => candidate.normalizedEmail === normalized);
-
-    if (existing) {
-      // Two different dates of birth for one address is never resolved
-      // silently: guessing which is right would either corrupt a record or
-      // decide somebody's eligibility on data they did not give.
-      if (
-        existing.dateOfBirth !== null &&
-        profile.profile.dateOfBirth !== null &&
-        existing.dateOfBirth !== profile.profile.dateOfBirth
-      ) {
-        throw new ApiError(
-          409,
-          'PARTICIPANT_IDENTITY_CONFLICT',
-          'This email is already registered with different details',
-          { field: 'dateOfBirth' },
-        );
-      }
-
-      const already = eventEntries.find(
-        (entry) => entry.eventId === eventId && entry.participantId === existing.id,
-      );
-      if (already) {
-        throw new ApiError(
-          409,
-          'PARTICIPANT_ALREADY_ENTERED',
-          'This person has already entered this event',
-          { entryId: already.id },
-        );
-      }
-    }
-
-    // ONE instant for the whole operation, exactly as the server does: the
-    // window, the event's local date, the age and `submittedAt` all come from
-    // it, so a submission at local midnight cannot be judged against one day
-    // and recorded against another.
-    const now = mockNow();
-    const at = now.toISOString();
-
-    // A zone the runtime cannot resolve is refused rather than silently
-    // becoming UTC — which is a different day for five hours every night.
-    if (!isValidTimeZone(event.timezone)) {
-      throw new ApiError(500, 'FORM_VERSION_INVALID', 'The published form could not be read', {
-        reason: 'event_timezone',
-      });
-    }
-
-    // The SAME shared rules the backend runs. Reimplementing them here is how a
-    // mock teaches a contract that does not exist.
-    const outcome = evaluateAgeEligibility({
-      minimumAge: event.minimumAge,
-      dateOfBirth: profile.profile.dateOfBirth,
-      formAsksForDateOfBirth: version.steps.some((step) =>
-        step.questions.some((q) => q.systemField === 'DATE_OF_BIRTH' && q.active),
-      ),
-      referenceCivilDate: civilDateInEventZone(now, event.timezone),
-    });
-    if (outcome.kind === 'rejected') {
-      // Broken input, not a person who failed a rule: no entry is recorded.
-      if (outcome.reasonCode === 'FORM_INVALID') {
-        throw new ApiError(500, 'FORM_VERSION_INVALID', 'The published form could not be read', {
-          reason: 'no_date_of_birth',
-        });
-      }
-      if (outcome.reasonCode === 'DATE_OF_BIRTH_REQUIRED') {
-        throw new ApiError(422, 'DATE_OF_BIRTH_REQUIRED', 'This event requires a date of birth');
-      }
-      throw new ApiError(400, 'DATE_OF_BIRTH_INVALID', 'That date of birth is not a possible one', {
-        problem: outcome.problem ?? 'INVALID',
-      });
-    }
-    const decision = outcome.decision;
-
-    let participant: Participant;
-    if (existing) {
-      // A form that did not ask cannot erase what an earlier one recorded.
-      existing.email = profile.profile.email;
-      existing.firstName = profile.profile.firstName;
-      existing.lastName = profile.profile.lastName;
-      existing.phone = profile.profile.phone ?? existing.phone;
-      existing.dateOfBirth = profile.profile.dateOfBirth ?? existing.dateOfBirth;
-      existing.updatedAt = at;
-      participant = existing;
-    } else {
-      participant = {
-        id: crypto.randomUUID(),
-        email: profile.profile.email,
-        normalizedEmail: normalized,
-        firstName: profile.profile.firstName,
-        lastName: profile.profile.lastName,
-        phone: profile.profile.phone,
-        dateOfBirth: profile.profile.dateOfBirth,
-        createdAt: at,
-        updatedAt: at,
-      };
-      participants.push(participant);
-    }
-
-    const entryId = crypto.randomUUID();
-    const entry: MockEntry = {
-      id: entryId,
-      eventId,
-      participantId: participant.id,
-      formVersionId: version.id,
-      // Born decided, in the same act that creates it.
-      status: statusForDecision(decision),
-      calculatedAge: decision.calculatedAge,
-      ageEligible: decision.ageEligible,
-      overallEligible: decision.overallEligible,
-      eligibilityReason: decision.reasonCode,
-      submittedAt: at,
-      createdAt: at,
-      updatedAt: at,
-      answers: buildMockAnswers(entryId, submission.accepted),
-    };
-    eventEntries.push(entry);
+    const { entry, participant } = recordEntry(event, currentVersionOf(event), answers, null);
 
     return delay({
       entry: snapshotEntry(entry),
       participant: snapshotParticipant(participant),
       answerCount: entry.answers.length,
+    });
+  },
+
+  // -------------------------------------------------------------------------
+  // Public flow (phase 9)
+  //
+  // Backed by the SAME `recordEntry` the administrative method uses, so the two
+  // cannot drift into different rules — which is the whole point of a parity
+  // mock. What differs is only what differs on the server: the version arrives
+  // from a token instead of from the event's current pointer, and a submission
+  // id makes a retry idempotent.
+  // -------------------------------------------------------------------------
+
+  /** Mirrors an absent `PUBLIC_FORM_TOKEN_SECRET` binding. */
+  setPublicFormTokenSecret(value: string | null): void {
+    publicTokenSecret = value;
+  },
+
+  async getPublicEvent(slug: string): Promise<PublicEventResponse> {
+    seedEvents();
+    const event = events.find((candidate) => candidate.slug === slug);
+
+    // A draft and an unused slug answer identically: confirming the slug exists
+    // would leak a plan nobody announced.
+    if (!event || publicVisibility(event.status) === 'hidden') {
+      throw new ApiError(404, 'PUBLIC_EVENT_NOT_FOUND', 'This event could not be found');
+    }
+
+    const now = mockNow();
+    const version = currentVersionOf(event);
+    const status = derivePublicEventStatus(
+      {
+        status: event.status,
+        registrationOpensAt: event.registrationOpensAt,
+        registrationClosesAt: event.registrationClosesAt,
+        hasServableForm: version !== null,
+      },
+      now.toISOString(),
+    );
+
+    const publicPrizes = toPublicPrizeDtos(
+      prizes.filter((prize) => prize.eventId === event.id),
+    );
+
+    if (status !== 'OPEN' || !version) {
+      return delay({
+        event: toPublicEventDto({
+          event,
+          registrationStatus: status,
+          form: null,
+          prizes: publicPrizes,
+          formToken: null,
+        }),
+      });
+    }
+
+    if (publicTokenSecret === null) {
+      throw new ApiError(
+        503,
+        'PUBLIC_EVENT_UNAVAILABLE',
+        'This event is not available right now',
+      );
+    }
+
+    const projection = toPublicFormDto(version.versionNumber, version.steps);
+    if (!projection.ok) {
+      throw new ApiError(
+        503,
+        'PUBLIC_EVENT_UNAVAILABLE',
+        'This event is not available right now',
+      );
+    }
+
+    return delay({
+      event: toPublicEventDto({
+        event,
+        registrationStatus: status,
+        form: projection.form,
+        prizes: publicPrizes,
+        formToken: issueMockToken(event.id, version.id, now.getTime()),
+      }),
+    });
+  },
+
+  async submitPublicEntry(
+    slug: string,
+    body: PublicSubmissionInput,
+  ): Promise<PublicEntryResponse> {
+    seedEvents();
+    const event = events.find((candidate) => candidate.slug === slug);
+    if (!event || publicVisibility(event.status) === 'hidden') {
+      throw new ApiError(404, 'PUBLIC_EVENT_NOT_FOUND', 'This event could not be found');
+    }
+
+    if (publicTokenSecret === null) {
+      throw new ApiError(
+        503,
+        'PUBLIC_EVENT_UNAVAILABLE',
+        'This event is not available right now',
+      );
+    }
+
+    // One generic answer for every way a token can be wrong — the server's
+    // rule, mirrored, because distinguishing them is an oracle.
+    const claims = verifyMockToken(body.formToken, event.id, mockNow().getTime());
+    if (!claims) {
+      throw new ApiError(
+        400,
+        'INVALID_FORM_SESSION',
+        'This form session is no longer valid; please reload the page',
+      );
+    }
+
+    // The key is checked BEFORE the window, so a retry after closing still
+    // returns what happened rather than "too late".
+    const replayed = eventEntries.find(
+      (entry) => entry.eventId === event.id && entry.submissionId === body.submissionId,
+    );
+    if (replayed) return delay(publicResultFor(event, replayed));
+
+    // The EXACT version the token names, never the current pointer.
+    const version = formVersions.find(
+      (candidate) => candidate.id === claims.versionId && candidate.eventId === event.id,
+    );
+    if (!version) {
+      throw new ApiError(
+        503,
+        'PUBLIC_EVENT_UNAVAILABLE',
+        'This event is not available right now',
+      );
+    }
+
+    try {
+      const { entry } = recordEntry(event, version, body.answers, body.submissionId);
+      return delay(publicResultFor(event, entry));
+    } catch (error) {
+      throw toPublicError(error);
+    }
+  },
+
+  // -------------------------------------------------------------------------
+  // Participant administration (phase 10)
+  //
+  // The lifecycle rules, the permissions and the draw predicate all come from
+  // `shared/participantAdministration.ts` — the same module the backend uses.
+  // Reimplementing them here is how a mock teaches a contract that does not
+  // exist.
+  // -------------------------------------------------------------------------
+
+  async listAdminParticipants(
+    eventId: string,
+    params: {
+      page?: number;
+      pageSize?: number;
+      search?: string;
+      eligibility?: ParticipantEligibilityFilter;
+      status?: ParticipantStatusFilter;
+      formVersionId?: string;
+    } = {},
+  ): Promise<AdminParticipantListResponse> {
+    requireAuth();
+    seedEvents();
+    const event = findEvent(eventId);
+
+    const page = params.page ?? 1;
+    const pageSize = params.pageSize ?? 25;
+    const search = (params.search ?? '').trim().toLowerCase();
+    const eligibility = params.eligibility ?? 'ALL';
+    const status = params.status ?? 'ALL';
+
+    const matched = eventEntries
+      .filter((entry) => entry.eventId === eventId)
+      .filter((entry) => {
+        if (!search) return true;
+        const participant = participants.find((p) => p.id === entry.participantId);
+        if (!participant) return false;
+        const haystack = [
+          participant.firstName,
+          participant.lastName,
+          `${participant.firstName} ${participant.lastName}`,
+          participant.email,
+        ]
+          .join('\n')
+          .toLowerCase();
+        return haystack.includes(search);
+      })
+      .filter((entry) => {
+        if (eligibility === 'ALL') return true;
+        // The HISTORICAL verdict, independent of current disposition.
+        return eligibility === 'ELIGIBLE'
+          ? entry.overallEligible === true
+          : entry.overallEligible === false;
+      })
+      .filter((entry) => status === 'ALL' || entry.status === status)
+      .filter((entry) => !params.formVersionId || entry.formVersionId === params.formVersionId)
+      // Newest first, with the id as a tie-breaker so a shared timestamp cannot
+      // make a row appear on two pages or on none.
+      .sort(
+        (a, b) =>
+          b.submittedAt.localeCompare(a.submittedAt) || b.id.localeCompare(a.id),
+      );
+
+    const items = matched
+      .slice((page - 1) * pageSize, page * pageSize)
+      .map((entry) => {
+        const participant = participants.find((p) => p.id === entry.participantId)!;
+        const version = formVersions.find((v) => v.id === entry.formVersionId);
+        return {
+          entryId: entry.id,
+          revision: entry.revision,
+          participantId: participant.id,
+          firstName: participant.firstName,
+          lastName: participant.lastName,
+          email: participant.email,
+          status: entry.status,
+          overallEligible: entry.overallEligible,
+          calculatedAge: entry.calculatedAge,
+          eligibilityReason: entry.eligibilityReason,
+          submittedAt: entry.submittedAt,
+          formVersionId: entry.formVersionId,
+          formVersionNumber: version?.versionNumber ?? 1,
+          answerCount: entry.answers.length,
+          disqualifiedAt: entry.disqualifiedAt,
+        };
+      });
+
+    return delay({
+      items,
+      total: matched.length,
+      page,
+      pageSize,
+      eventStatus: event.status,
+      administrationAllowed: eventAllowsParticipantAdministration(event.status),
+    });
+  },
+
+  async getAdminParticipantSummary(
+    eventId: string,
+  ): Promise<AdminParticipantSummaryResponse> {
+    requireAuth();
+    seedEvents();
+    const event = findEvent(eventId);
+    const own = eventEntries.filter((entry) => entry.eventId === eventId);
+
+    return delay({
+      summary: {
+        total: own.length,
+        eligible: own.filter((e) => e.overallEligible === true).length,
+        ineligible: own.filter((e) => e.overallEligible === false).length,
+        submitted: own.filter((e) => e.status === 'SUBMITTED').length,
+        disqualified: own.filter((e) => e.status === 'DISQUALIFIED').length,
+        // The shared predicate, so the number on screen and the population a
+        // draw would take are the same rule.
+        drawEligible: own.filter((e) => isDrawEligible(e)).length,
+      },
+      eventStatus: event.status,
+      administrationAllowed: eventAllowsParticipantAdministration(event.status),
+    });
+  },
+
+  async getAdminParticipant(
+    eventId: string,
+    entryId: string,
+  ): Promise<AdminParticipantDetailResponse> {
+    requireAuth();
+    seedEvents();
+    const event = findEvent(eventId);
+    return delay({
+      participant: projectAdminParticipant(event, requireEntry(eventId, entryId)),
+      eventStatus: event.status,
+    });
+  },
+
+  async disqualifyParticipant(
+    eventId: string,
+    entryId: string,
+    input: DisqualifyEntryInput,
+  ): Promise<ParticipantMutationResponse> {
+    const admin = requireAuth();
+    seedEvents();
+    const event = findEvent(eventId);
+    const entry = requireEntry(eventId, entryId);
+
+    const permission = canDisqualify({
+      eventStatus: event.status,
+      entryStatus: entry.status,
+      preDisqualificationStatus: entry.preDisqualificationStatus,
+    });
+    if (!permission.allowed) throw blockerError(permission.blocker, event.status);
+    requireRevision(entry, input.expectedRevision);
+
+    const reason = input.reason.trim();
+    if (reason.length < 3 || reason.length > 500) {
+      throw new ApiError(400, 'VALIDATION_ERROR', 'Invalid disqualification payload');
+    }
+
+    // The verdict is NOT touched: calculatedAge, ageEligible, overallEligible,
+    // eligibilityReason and the answers all stay exactly as they were.
+    entry.preDisqualificationStatus = entry.status;
+    entry.status = 'DISQUALIFIED';
+    entry.disqualifiedAt = mockNow().toISOString();
+    entry.disqualifiedByAdminId = admin.id;
+    entry.disqualificationReason = reason;
+    entry.revision += 1;
+    entry.updatedAt = entry.disqualifiedAt;
+
+    return delay({ participant: projectAdminParticipant(event, entry) });
+  },
+
+  async reinstateParticipant(
+    eventId: string,
+    entryId: string,
+    input: ReinstateEntryInput,
+  ): Promise<ParticipantMutationResponse> {
+    requireAuth();
+    seedEvents();
+    const event = findEvent(eventId);
+    const entry = requireEntry(eventId, entryId);
+
+    const permission = canReinstate({
+      eventStatus: event.status,
+      entryStatus: entry.status,
+      preDisqualificationStatus: entry.preDisqualificationStatus,
+    });
+    if (!permission.allowed) throw blockerError(permission.blocker, event.status);
+    requireRevision(entry, input.expectedRevision);
+
+    // Back to the RECORDED status, never a recomputed one.
+    entry.status = entry.preDisqualificationStatus!;
+    entry.preDisqualificationStatus = null;
+    entry.disqualifiedAt = null;
+    entry.disqualifiedByAdminId = null;
+    entry.disqualificationReason = null;
+    entry.revision += 1;
+    entry.updatedAt = mockNow().toISOString();
+
+    return delay({ participant: projectAdminParticipant(event, entry) });
+  },
+
+  // -------------------------------------------------------------------------
+  // The draw (phase 11)
+  //
+  // The candidate predicate, the unit expansion, the winner count, the
+  // canonical serialization and the hash all come from `shared/drawLifecycle.ts`
+  // and `shared/secureRandom.ts` — the SAME modules the backend uses. Nothing
+  // about the selection is reimplemented here.
+  //
+  // WHAT THIS MOCK CANNOT REPRODUCE, and does not pretend to: transactional
+  // atomicity. There is no batch, so there is no way to demonstrate a rollback.
+  // It compensates by validating EVERYTHING before it mutates anything, so the
+  // observable outcome — either a complete draw or no change at all — matches,
+  // even though the mechanism does not. It must never accept a draw the backend
+  // would refuse.
+  // -------------------------------------------------------------------------
+
+  async getDraw(eventId: string): Promise<DrawStatusResponse> {
+    requireAuth();
+    seedEvents();
+    const event = findEvent(eventId);
+
+    const candidateIds = drawCandidatesOf(eventId);
+    const units = expandPrizeUnits(
+      prizes.filter((prize) => prize.eventId === eventId),
+    );
+    const existing = draws.find((draw) => draw.eventId === eventId) ?? null;
+
+    const blockers: DrawFailureCode[] = [];
+    if (existing || event.status === 'DRAW_COMPLETED') {
+      blockers.push('DRAW_ALREADY_COMPLETED');
+    } else {
+      if (!eventAllowsDraw(event.status)) blockers.push('DRAW_NOT_READY');
+      if (candidateIds.length < 1) blockers.push('NO_ELIGIBLE_PARTICIPANTS');
+      if (units.length < 1) blockers.push('NO_ACTIVE_PRIZES');
+    }
+
+    return delay({
+      ...snapshotDraw(event, existing),
+      readiness: {
+        eventStatus: event.status,
+        candidateCount: candidateIds.length,
+        prizeUnitCount: units.length,
+        plannedWinnerCount: plannedWinnerCount(candidateIds.length, units.length),
+        canRun: blockers.length === 0,
+        blockers,
+      },
+    });
+  },
+
+  async runDraw(eventId: string): Promise<DrawResponse> {
+    const admin = requireAuth();
+    seedEvents();
+    const event = findEvent(eventId);
+
+    // THE REPLAY, first and before anything else — exactly as the service does
+    // it, and before the shuffle, so a retry cannot produce a second selection.
+    // A second attempt is answered with the draw, not with an error.
+    const existing = draws.find((draw) => draw.eventId === eventId);
+    if (existing) return delay(snapshotDraw(event, existing));
+
+    // Every refusal, in the SAME order and with the same codes the service
+    // uses, before a single value is written.
+    if (event.status === 'DRAW_COMPLETED') {
+      throw new ApiError(409, 'DRAW_ALREADY_COMPLETED', 'This event has already been drawn');
+    }
+    if (!eventAllowsDraw(event.status)) {
+      throw new ApiError(409, 'DRAW_NOT_READY', 'This event is not ready to draw', {
+        eventStatus: event.status,
+      });
+    }
+
+    const candidateIds = drawCandidatesOf(eventId);
+    if (candidateIds.length < 1) {
+      throw new ApiError(
+        409,
+        'NO_ELIGIBLE_PARTICIPANTS',
+        'There are no eligible participants to draw from',
+      );
+    }
+
+    const units = expandPrizeUnits(prizes.filter((prize) => prize.eventId === eventId));
+    if (units.length < 1) {
+      throw new ApiError(409, 'NO_ACTIVE_PRIZES', 'There are no active prizes to award');
+    }
+
+    const winnerCount = plannedWinnerCount(candidateIds.length, units.length);
+    if (winnerCount > DRAW_ASSIGNMENTS_MAX) {
+      throw new ApiError(409, 'DRAW_CONFLICT', 'The draw could not be completed', {
+        reason: 'too_many_assignments',
+      });
+    }
+
+    // The real CSPRNG, not `Math.random`. A mock that shuffled with a
+    // predictable generator would be teaching the one lesson this feature must
+    // never teach.
+    const winners = secureShuffle(candidateIds, new CryptoRandomSource()).slice(
+      0,
+      winnerCount,
+    );
+
+    const at = mockNow().toISOString();
+    const drawId = crypto.randomUUID();
+
+    draws.push({
+      id: drawId,
+      eventId,
+      completedAt: at,
+      candidateCount: candidateIds.length,
+      prizeUnitCount: units.length,
+      assignmentCount: winners.length,
+      algorithmVersion: DRAW_ALGORITHM_VERSION,
+      candidateSetHash: await hashCandidateSet(candidateIds),
+      executedByAdminId: admin.id,
+      executedByName: admin.displayName,
+      assignments: winners.map((entryId, index) => ({
+        id: crypto.randomUUID(),
+        drawOrder: index,
+        prizeId: units[index].prizeId,
+        prizeUnitIndex: units[index].unitIndex,
+        // The SNAPSHOT, copied now, exactly as the server records it.
+        prizeNameSnapshot: units[index].nameSnapshot,
+        prizeDescriptionSnapshot: units[index].descriptionSnapshot,
+        entryId,
+      })),
+    });
+
+    // The event moves with the draw. Nothing else may set DRAW_COMPLETED, here
+    // or on the server.
+    event.status = 'DRAW_COMPLETED';
+    event.revision += 1;
+    event.updatedAt = at;
+    event.updatedBy = admin.id;
+
+    return delay(snapshotDraw(event, draws[draws.length - 1]));
+  },
+
+  // -------------------------------------------------------------------------
+  // Results, publication and archiving (phase 12)
+  //
+  // The lifecycle rules and the winner formatter come from
+  // `shared/resultLifecycle.ts` — the same module the backend uses. Nothing
+  // about who may publish, when, or what the public sees is decided here.
+  // -------------------------------------------------------------------------
+
+  async getEventResults(eventId: string): Promise<AdminEventResults> {
+    requireAuth();
+    seedEvents();
+    return delay(projectResults(findEvent(eventId)));
+  },
+
+  async publishResults(eventId: string): Promise<PublishResultsResponse> {
+    const admin = requireAuth();
+    seedEvents();
+    const event = findEvent(eventId);
+
+    // THE REPLAY, first and before anything is built. A second attempt is
+    // answered with the publication — same names, same instant — exactly as the
+    // server does it.
+    const existing = publications.find((p) => p.eventId === eventId);
+    if (existing) return delay({ results: projectResults(event) });
+
+    const draw = draws.find((candidate) => candidate.eventId === eventId) ?? null;
+    const permission = canPublishResults({
+      eventStatus: event.status,
+      hasDraw: draw !== null,
+      hasPublication: false,
+    });
+    if (!permission.allowed || !draw) {
+      throw new ApiError(409, 'RESULTS_NOT_PUBLISHABLE', 'These results cannot be published', {
+        blocker: permission.allowed ? 'NO_DRAW' : permission.blocker,
+        eventStatus: event.status,
+      });
+    }
+
+    // Everything is validated and built BEFORE anything is stored. The mock has
+    // no transaction, so this is the compensating property: either the whole
+    // publication appears or none of it does.
+    const rows = assignmentsOf(draw);
+    const items: MockPublicationItem[] = [];
+    for (const [index, row] of rows.entries()) {
+      const displayName = formatPublicWinnerName(row.winner);
+      if (displayName === null) {
+        throw new ApiError(409, 'RESULTS_CONFLICT', 'The results could not be published', {
+          reason: 'winner_name_unavailable',
+        });
+      }
+      items.push({
+        id: crypto.randomUUID(),
+        assignmentId: draw.assignments[index].id,
+        drawOrder: row.drawOrder,
+        winnerDisplayNameSnapshot: displayName,
+        prizeNameSnapshot: row.prize.nameSnapshot,
+        prizeDescriptionSnapshot: row.prize.descriptionSnapshot,
+        prizeUnitIndex: row.prize.unitIndex,
+      });
+    }
+
+    publications.push({
+      id: crypto.randomUUID(),
+      eventId,
+      drawId: draw.id,
+      publishedAt: mockNow().toISOString(),
+      publishedByAdminId: admin.id,
+      publishedByName: admin.displayName,
+      winnerCount: items.length,
+      items,
+    });
+
+    return delay({ results: projectResults(event) });
+  },
+
+  async getPublicEventResults(slug: string): Promise<PublicEventResultsDTO> {
+    seedEvents();
+    // NO AUTHENTICATION, and no visibility check on the event: a published
+    // result outlives the page that produced it, including after archiving.
+    const event = events.find((candidate) => candidate.slug === slug);
+    const publication = event
+      ? publications.find((p) => p.eventId === event.id)
+      : undefined;
+
+    // ONE refusal for a slug nobody has used, an event never drawn, and an
+    // event drawn but unpublished. Distinguishing them would make this an
+    // oracle for whether a private draw has happened.
+    if (!event || !publication) {
+      throw new ApiError(404, 'RESULTS_NOT_AVAILABLE', 'Results are not available');
+    }
+
+    return delay({
+      event: { slug: event.slug, name: event.name },
+      results: {
+        publishedAt: publication.publishedAt,
+        // Built field by field from the SNAPSHOTS. No spread, so nothing added
+        // to the stored item later travels to a public page by accident.
+        winners: publication.items
+          .slice()
+          .sort((a, b) => a.drawOrder - b.drawOrder)
+          .map((item) => ({
+            displayName: item.winnerDisplayNameSnapshot,
+            prizeName: item.prizeNameSnapshot,
+            prizeDescription: item.prizeDescriptionSnapshot,
+            prizeUnitIndex: item.prizeUnitIndex,
+          })),
+      },
     });
   },
 

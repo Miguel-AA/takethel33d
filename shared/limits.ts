@@ -147,6 +147,17 @@ export const ANSWER_NUMBER_MAX = FORM_VALIDATION_NUMBER_MAX;
 /** Ceiling for a stored eligibility explanation (written by a later phase). */
 export const ENTRY_ELIGIBILITY_REASON_MAX_LENGTH = 200;
 
+/**
+ * Bounds on the reason an administrator gives for a disqualification.
+ *
+ * A minimum, not just a maximum: "removing somebody from consideration" is a
+ * decision that has to be explainable to the person it affects, and a single
+ * character is not an explanation. The ceiling matches the column's trigger, so
+ * the schema and the storage layer cannot disagree about what fits.
+ */
+export const DISQUALIFICATION_REASON_MIN_LENGTH = 3;
+export const DISQUALIFICATION_REASON_MAX_LENGTH = 500;
+
 // --- Query / pagination ---------------------------------------------------
 export const PAGE_SIZE_DEFAULT = 25;
 export const PAGE_SIZE_MAX = 200;
@@ -158,5 +169,104 @@ export const SEARCH_MAX_LENGTH = 120;
 export const PAYLOAD_LIMIT_AUTH_BYTES = 16 * 1024;
 /** General administrative JSON endpoints. */
 export const PAYLOAD_LIMIT_ADMIN_BYTES = 128 * 1024;
-/** Reserved for the public form flow introduced in a later phase. */
+/** The public submission endpoint: a filled-in form and nothing else. */
 export const PAYLOAD_LIMIT_PUBLIC_FORM_BYTES = 256 * 1024;
+
+// --- Public form session token --------------------------------------------
+//
+// The token binds a submission to the EXACT form version the participant was
+// shown. Every bound lives here so the issuer, the verifier and their tests
+// read one number rather than three that drift.
+
+/**
+ * How long a rendered form stays submittable: two hours.
+ *
+ * Long enough that somebody can genuinely fill in a multi-step form, take a
+ * call and come back. Short enough that a token scraped from a page is not a
+ * permanent licence to submit against a version the organiser has moved on
+ * from.
+ */
+export const PUBLIC_FORM_TOKEN_TTL_SECONDS = 7200;
+
+/**
+ * How far ahead of the verifier's clock an `issuedAt` may sit.
+ *
+ * Not a courtesy: Cloudflare serves from many machines and their clocks agree
+ * only to within a small drift, so a token minted a moment ago can legitimately
+ * carry a timestamp fractionally in the verifier's future. Without this a user
+ * would see a form and be refused the instant they submitted it. Bounded to one
+ * minute so it cannot be used to extend the TTL.
+ */
+export const PUBLIC_FORM_TOKEN_MAX_FUTURE_SKEW_SECONDS = 60;
+
+/**
+ * Ceiling on the encoded token, applied BEFORE any decoding.
+ *
+ * The payload is two UUIDs, an integer and a short nonce — roughly 160 bytes
+ * encoded. 1024 is a generous multiple of that and still refuses a megabyte of
+ * base64 arriving as a denial-of-service against the decoder, which is why the
+ * check has to come first rather than after a split.
+ */
+export const PUBLIC_FORM_TOKEN_MAX_BYTES = 1024;
+
+/** Bytes of CSPRNG behind the token's nonce. */
+export const PUBLIC_FORM_TOKEN_NONCE_BYTES = 12;
+
+// --- Public rate limiting --------------------------------------------------
+//
+// Deliberately NOT the login thresholds. A failed login is a credential guess;
+// a public GET is somebody reading a page. Sharing the numbers would either
+// make the public flow unusable or make the login flow permissive.
+
+/** Reading an event page: generous, since a visitor may reload and navigate. */
+export const PUBLIC_GET_RATE_WINDOW_MS = 60 * 1000;
+export const PUBLIC_GET_RATE_MAX = 120;
+
+/** Submitting from one address. A person submits once; a script does not. */
+export const PUBLIC_ENTRY_IP_RATE_WINDOW_MS = 10 * 60 * 1000;
+export const PUBLIC_ENTRY_IP_RATE_MAX = 5;
+
+/**
+ * One address attempting ONE identity.
+ *
+ * The tight control, and the one that does the real work: an attacker probing
+ * whether a given address is registered is exactly this bucket. Kept above 1 so
+ * a genuine correction — a typo in a date of birth, a retried network failure —
+ * is not punished.
+ */
+export const PUBLIC_ENTRY_IP_EMAIL_RATE_WINDOW_MS = 10 * 60 * 1000;
+export const PUBLIC_ENTRY_IP_EMAIL_RATE_MAX = 3;
+
+/**
+ * Backstop across every address for one identity.
+ *
+ * DELIBERATELY GENEROUS. This bucket is the one an attacker could weaponise:
+ * knowing a victim's email, they could burn it from many IPs and lock the
+ * victim out of registering at all. Twenty an hour is far above anything a real
+ * person does and far below a useful enumeration rate, and the fine-grained
+ * refusal is meant to come from the IP+email bucket long before this one fires.
+ */
+export const PUBLIC_ENTRY_EMAIL_RATE_WINDOW_MS = 60 * 60 * 1000;
+export const PUBLIC_ENTRY_EMAIL_RATE_MAX = 20;
+
+// --- The draw -------------------------------------------------------------
+
+/**
+ * The most assignments one draw may commit.
+ *
+ * A draw writes one row per winner, and all of them commit in a single
+ * transaction alongside the draw row, the audit entry and the event's
+ * transition. That is the whole atomicity guarantee, and it is only a guarantee
+ * while the batch is a size a single transaction can actually carry.
+ *
+ * The configuration limits alone allow far more than that — `PRIZES_PER_EVENT_MAX`
+ * prizes at `PRIZE_QUANTITY_MAX` units each is a hundred thousand units — so
+ * this ceiling exists to REFUSE such a draw cleanly rather than attempt it and
+ * fail somewhere inside the commit. No realistic event approaches it: a
+ * thousand winners in one draw is already two orders of magnitude beyond what
+ * this system is for.
+ *
+ * Refusing is the safe direction. A draw that cannot be committed atomically
+ * must not be committed at all.
+ */
+export const DRAW_ASSIGNMENTS_MAX = 1000;

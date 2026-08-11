@@ -40,7 +40,14 @@ import {
   PAGE_SIZE_MAX,
   SEARCH_MAX_LENGTH,
   ANSWERS_PER_ENTRY_MAX,
+  PUBLIC_FORM_TOKEN_MAX_BYTES,
+  DISQUALIFICATION_REASON_MIN_LENGTH,
+  DISQUALIFICATION_REASON_MAX_LENGTH,
 } from './limits.ts';
+import {
+  PARTICIPANT_ELIGIBILITY_FILTERS,
+  PARTICIPANT_STATUS_FILTERS,
+} from './participantAdministration.ts';
 import { EVENT_STATUSES } from './eventLifecycle.ts';
 import { PRIZE_STATUSES } from './prizeLifecycle.ts';
 import {
@@ -778,7 +785,80 @@ export const createEventEntrySchema = z
 
 export type CreateEventEntrySchemaInput = z.infer<typeof createEventEntrySchema>;
 
+/**
+ * A public submission.
+ *
+ * `.strict()` is the mass-assignment defence and is not decoration: it is what
+ * makes `participantId`, `formVersionId`, `status`, `calculatedAge`,
+ * `overallEligible`, `submittedAt`, `ipHash` and every other server-owned field
+ * a REJECTION rather than a silently ignored extra key. The three keys below
+ * are the entire public write surface.
+ *
+ * The token is length-bounded here as well as inside the verifier, so an
+ * oversized value is refused by the schema before any crypto is attempted.
+ */
+export const publicSubmissionSchema = z
+  .object({
+    formToken: z.string().min(1).max(PUBLIC_FORM_TOKEN_MAX_BYTES),
+    // A UUID, not free text: the key is an idempotency handle the client mints
+    // with `crypto.randomUUID()`, and accepting an arbitrary string would let a
+    // caller choose a colliding or unbounded one.
+    submissionId: z.string().uuid(),
+    answers: z.array(formAnswerInputSchema).max(ANSWERS_PER_ENTRY_MAX).default([]),
+  })
+  .strict();
+
+export type PublicSubmissionSchemaInput = z.infer<typeof publicSubmissionSchema>;
+
 export const eventEntryIdSchema = z.string().uuid();
+
+/**
+ * Removing a participation from consideration.
+ *
+ * `.strict()` is the mass-assignment defence: `status`, `preDisqualificationStatus`,
+ * `disqualifiedAt`, `disqualifiedByAdminId`, `revision` and every other
+ * server-owned field are a REJECTION rather than a silently ignored extra key.
+ * The actor comes from the session, the timestamp from the server, and the
+ * previous status from the row itself — none of them from the caller.
+ *
+ * The reason is trimmed BEFORE it is bounded, so leading whitespace cannot be
+ * used to satisfy a minimum length with nothing in it.
+ */
+export const disqualifyEntrySchema = z
+  .object({
+    expectedRevision: z.number().int().min(1),
+    reason: z
+      .string()
+      .trim()
+      .min(DISQUALIFICATION_REASON_MIN_LENGTH)
+      .max(DISQUALIFICATION_REASON_MAX_LENGTH),
+  })
+  .strict();
+
+/**
+ * Putting one back.
+ *
+ * No reason: the destination is not a decision the caller makes, it is the
+ * status the entry recorded before it was disqualified. Accepting a target
+ * status here would let a caller promote an entry that never qualified.
+ */
+export const reinstateEntrySchema = z
+  .object({ expectedRevision: z.number().int().min(1) })
+  .strict();
+
+export const adminParticipantListQuerySchema = z
+  .object({
+    page: z.coerce.number().int().min(1).default(1),
+    pageSize: z.coerce.number().int().min(1).max(PAGE_SIZE_MAX).default(PAGE_SIZE_DEFAULT),
+    search: z.string().trim().max(SEARCH_MAX_LENGTH).optional(),
+    eligibility: z.enum(PARTICIPANT_ELIGIBILITY_FILTERS).default('ALL'),
+    status: z.enum(PARTICIPANT_STATUS_FILTERS).default('ALL'),
+    formVersionId: z.string().uuid().optional(),
+  })
+  .strict();
+
+export type DisqualifyEntrySchemaInput = z.infer<typeof disqualifyEntrySchema>;
+export type ReinstateEntrySchemaInput = z.infer<typeof reinstateEntrySchema>;
 
 export const eventEntryListQuerySchema = z
   .object({
@@ -795,3 +875,50 @@ export const raffleDrawSchema = z.union([
     participantNumber: z.coerce.number().int().positive(),
   }),
 ]);
+
+// ---------------------------------------------------------------------------
+// The draw (phase 11)
+// ---------------------------------------------------------------------------
+
+/**
+ * Running the draw.
+ *
+ * EMPTY, AND STRICT, AND BOTH HALVES MATTER.
+ *
+ * Empty because there is nothing legitimate for a caller to say. The candidates
+ * come from the certified predicate, the prizes from the event's own
+ * configuration, the winners from a server-side CSPRNG, the actor from the
+ * session and the moment from the server clock. A draw takes no parameters
+ * because none of its inputs belong to whoever pressed the button.
+ *
+ * Strict because that is what turns "we ignore what you sent" into "we refuse
+ * it". `seed`, `candidates`, `winners`, `entryId`, `prizeId`, `count` and
+ * anything else a caller might try are a REJECTION rather than a silently
+ * dropped extra key — and a rejection is visible in a test, in a log and to
+ * whoever tried.
+ *
+ * Deliberately NOT `raffleDrawSchema`, which belongs to the legacy attendee
+ * raffle and accepts a manual participant number. That mode has no place here:
+ * choosing the winner is exactly what this endpoint must not let anyone do.
+ */
+export const runDrawSchema = z.object({}).strict();
+
+export type RunDrawSchemaInput = z.infer<typeof runDrawSchema>;
+
+/**
+ * Publishing results.
+ *
+ * EMPTY, AND STRICT, for the same reasons the draw's schema is. There is
+ * nothing legitimate for a caller to say: the winners come from the draw, their
+ * public names from `formatPublicWinnerName`, the prizes from the assignment
+ * snapshots, the actor from the session and the instant from the server clock.
+ *
+ * Strict is what turns "we ignore what you sent" into "we refuse it".
+ * `drawId`, `winnerNames`, `displayNames`, `assignmentIds`, `winnerCount`,
+ * `publishedAt` and `publishedBy` are a REJECTION rather than a silently
+ * dropped key — and a rejection is visible in a test, in a log, and to whoever
+ * tried to name their own winners.
+ */
+export const publishResultsSchema = z.object({}).strict();
+
+export type PublishResultsSchemaInput = z.infer<typeof publishResultsSchema>;

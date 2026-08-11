@@ -9,6 +9,7 @@ import { EDITABLE_FIELDS_BY_STATUS } from '../../../../shared/eventLifecycle';
 import { AdminRepository } from '../../../_shared/adminRepository';
 import { EventRepository } from '../../../_shared/eventRepository';
 import { PrizeRepository } from '../../../_shared/prizeRepository';
+import { EventEntryRepository } from '../../../_shared/eventEntryRepository';
 import { FormVersionRepository } from '../../../_shared/formVersionRepository';
 import { asUuid } from '../../../_shared/ids';
 import {
@@ -46,10 +47,15 @@ export const onRequestGet: PagesFunction<Env, 'id', AdminRequestData> = async (c
   // The draw precondition depends on prizes, so the unit count is resolved
   // here and folded into the action list the UI renders from.
   const activePrizeUnits = await new PrizeRepository(ctx.env.DB).countActiveUnits(id);
+  // ...and on there being somebody to draw. Same predicate the draw itself
+  // applies, read from the same aggregate the participants screen shows, so the
+  // button and the outcome cannot disagree.
+  const { drawEligible } = await new EventEntryRepository(ctx.env.DB).aggregateByEvent(id);
   // Resolved, not merely read: the pointer must name a version of THIS event.
   const pointer = await new FormVersionRepository(ctx.env.DB).pointerCondition(id);
   const { available, blocked } = service.describeActions(event, {
     activePrizeUnits,
+    drawEligibleCount: drawEligible,
     publishedFormValid: pointer === 'valid',
   });
   const deletable = service.canDelete(event);

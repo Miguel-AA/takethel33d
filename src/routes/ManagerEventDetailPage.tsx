@@ -144,6 +144,28 @@ export function ManagerEventDetailPage() {
           >
             {t('entries.nav')}
           </Link>
+          {/* Only once the event is at or past the point of drawing. Offering
+              the link earlier would advertise a page whose only content would
+              be a refusal — and a draw is not something to browse toward while
+              registration is still open. */}
+          {(event.status === 'DRAW_READY' || event.status === 'DRAW_COMPLETED') && (
+            <Link
+              to={`/manager/events/${event.id}/draw`}
+              className="btn-secondary w-fit text-xs"
+            >
+              {t('draw.nav')}
+            </Link>
+          )}
+          {/* Results exist only once a draw has produced them, and remain
+              reachable after archiving — which is where the history is read. */}
+          {(event.status === 'DRAW_COMPLETED' || event.status === 'ARCHIVED') && (
+            <Link
+              to={`/manager/events/${event.id}/results`}
+              className="btn-secondary w-fit text-xs"
+            >
+              {t('results.nav')}
+            </Link>
+          )}
           <Link to={`/manager/events/${event.id}/edit`} className="btn-primary w-fit text-xs">
             {t('event.action.edit')}
           </Link>

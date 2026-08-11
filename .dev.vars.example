@@ -11,3 +11,20 @@
 # See README.md → "Acceso administrativo".
 
 RESEND_API_KEY="re_xxxxxxxxxxxxxxxxxxxx"
+
+# Signing key for the public form-session token (phase 9).
+#
+# The public event page mints a short-lived HMAC token that binds a submission
+# to the exact form version the participant was shown. WITHOUT THIS BINDING the
+# server cannot tell which questions somebody was actually asked, so the flow
+# refuses to serve or accept anything when the key is absent: the event reports
+# PUBLIC_EVENT_UNAVAILABLE rather than falling back to an unsigned token or a
+# built-in default. There is deliberately no fallback secret anywhere in the
+# code.
+#
+# Generate a fresh one per environment, e.g.:
+#   node -e "console.log(require('crypto').randomBytes(32).toString('base64url'))"
+#
+# Local development only. In production set it as a Cloudflare secret:
+#   npx wrangler pages secret put PUBLIC_FORM_TOKEN_SECRET
+PUBLIC_FORM_TOKEN_SECRET=

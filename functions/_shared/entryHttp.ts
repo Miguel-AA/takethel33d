@@ -14,6 +14,9 @@ const FAILURE_STATUS: Record<EntryFailure['code'], number> = {
   EVENT_NOT_ACCEPTING_ENTRIES: 409,
   PARTICIPANT_ALREADY_ENTERED: 409,
   PARTICIPANT_IDENTITY_CONFLICT: 409,
+  // Produced only by the public flow's identity gate; the administrative
+  // endpoint installs none and can never reach it.
+  ENTRY_RATE_LIMITED: 429,
   // The rules the decision was computed from were edited mid-flight. A retry
   // with the current configuration is the right answer, so it is a conflict.
   EVENT_REGISTRATION_CONFIG_CHANGED: 409,
@@ -42,6 +45,7 @@ const FAILURE_MESSAGE: Record<EntryFailure['code'], string> = {
   EVENT_NOT_ACCEPTING_ENTRIES: 'This event is not accepting entries',
   PARTICIPANT_ALREADY_ENTERED: 'This person has already entered this event',
   PARTICIPANT_IDENTITY_CONFLICT: 'This email is already registered with different details',
+  ENTRY_RATE_LIMITED: 'Too many attempts; please try again later',
   EVENT_REGISTRATION_CONFIG_CHANGED: 'This event’s registration rules changed; please try again',
   FORM_VERSION_REQUIRED: 'This event has no published form to fill in',
   DATE_OF_BIRTH_INVALID: 'That date of birth is not a possible one',
@@ -110,9 +114,19 @@ export function entryFailureResponse(failure: EntryFailure, requestId: string): 
       break;
   }
 
+  if (failure.code === 'ENTRY_RATE_LIMITED') {
+    fields.retryAfter = String(failure.retryAfterSeconds);
+  }
+
+  // One internal code maps onto an existing public one rather than inventing a
+  // second name for the same condition — the same move `eventHttp` makes for
+  // EVENT_INVALID_TIMEZONE. `ENTRY_RATE_LIMITED` names WHERE the refusal came
+  // from; `RATE_LIMITED` is what a client acts on.
+  const code = failure.code === 'ENTRY_RATE_LIMITED' ? 'RATE_LIMITED' : failure.code;
+
   return error(
     FAILURE_STATUS[failure.code],
-    failure.code,
+    code,
     FAILURE_MESSAGE[failure.code],
     Object.keys(fields).length > 0 ? fields : undefined,
     { requestId },

@@ -1198,7 +1198,7 @@ describe('migrations', () => {
     // sorts before an earlier one.
     const files = migrationFiles();
     expect(files[0]).toBe('0001_init.sql');
-    expect(files.at(-1)).toBe('0013_eligibility_constraints.sql');
+    expect(files.at(-1)).toBe('0017_results_and_archiving.sql');
 
     const fresh = new DatabaseSync(':memory:');
     try {
@@ -1208,6 +1208,151 @@ describe('migrations', () => {
       }
     } finally {
       fresh.close();
+    }
+  });
+});
+
+// ---------------------------------------------------------------------------
+describe('0014 — public submission idempotency', () => {
+  const NOW = `'2026-01-01T00:00:00.000Z'`;
+
+  /** An event, a version, a participant — everything an entry needs. */
+  function seeded() {
+    const db = createTestDatabase();
+    db.raw.exec(`
+      INSERT INTO admin_users (id, email, normalized_email, display_name, password_hash)
+      VALUES ('u1','a@x.com','a@x.com','A','h');
+      INSERT INTO events (id, slug, name, timezone, status, created_by, updated_by, created_at, updated_at)
+      VALUES ('e1','ev','Event','UTC','OPEN','u1','u1',${NOW},${NOW});
+      INSERT INTO event_form_versions (id, event_id, version_number, source_draft_revision, published_by, published_at, schema_snapshot, created_at)
+      VALUES ('v1','e1',1,1,'u1',${NOW},'{}',${NOW});
+      INSERT INTO participants (id, email, normalized_email, first_name, last_name, created_at, updated_at)
+      VALUES ('p1','a@b.com','a@b.com','Ana','Lopez',${NOW},${NOW});
+      INSERT INTO participants (id, email, normalized_email, first_name, last_name, created_at, updated_at)
+      VALUES ('p2','c@d.com','c@d.com','Bea','Ruiz',${NOW},${NOW});
+    `);
+    return db;
+  }
+
+  const insertEntry = (
+    id: string,
+    participantId: string,
+    submissionId: string | null,
+  ) =>
+    `INSERT INTO event_entries
+       (id, event_id, participant_id, form_version_id, status, submission_id, submitted_at, created_at, updated_at)
+     VALUES ('${id}','e1','${participantId}','v1','SUBMITTED',${
+       submissionId === null ? 'NULL' : `'${submissionId}'`
+     },${NOW},${NOW},${NOW})`;
+
+  it('adds the column and the partial unique index', () => {
+    const db = seeded();
+    try {
+      const columns = (
+        db.raw.prepare('PRAGMA table_info(event_entries)').all() as Array<{ name: string }>
+      ).map((row) => row.name);
+      expect(columns).toContain('submission_id');
+      expect(indexNames(db.raw, 'event_entries')).toContain('ux_event_entries_submission_id');
+    } finally {
+      db.close();
+    }
+  });
+
+  it('refuses a duplicate key', () => {
+    const db = seeded();
+    try {
+      db.raw.exec(insertEntry('en1', 'p1', 'sub-1'));
+      expect(() => db.raw.exec(insertEntry('en2', 'p2', 'sub-1'))).toThrow(/UNIQUE/i);
+    } finally {
+      db.close();
+    }
+  });
+
+  it('allows many entries with no key at all', () => {
+    // Administrative entries and every row predating this migration carry NULL.
+    // A non-partial index would make the second one collide.
+    const db = seeded();
+    try {
+      db.raw.exec(insertEntry('en1', 'p1', null));
+      expect(() => db.raw.exec(insertEntry('en2', 'p2', null))).not.toThrow();
+      const row = db.raw
+        .prepare('SELECT COUNT(*) AS n FROM event_entries WHERE submission_id IS NULL')
+        .get() as { n: number };
+      expect(row.n).toBe(2);
+    } finally {
+      db.close();
+    }
+  });
+
+  it('preserves historical entries when upgrading a populated database', () => {
+    // Applied through 0013 first, with rows in place, then 0014 on top.
+    const db = createTestDatabase({ through: '0013_eligibility_constraints.sql' });
+    try {
+      db.raw.exec(`
+        INSERT INTO admin_users (id, email, normalized_email, display_name, password_hash)
+        VALUES ('u1','a@x.com','a@x.com','A','h');
+        INSERT INTO events (id, slug, name, timezone, status, created_by, updated_by, created_at, updated_at)
+        VALUES ('e1','ev','Event','UTC','OPEN','u1','u1',${NOW},${NOW});
+        INSERT INTO event_form_versions (id, event_id, version_number, source_draft_revision, published_by, published_at, schema_snapshot, created_at)
+        VALUES ('v1','e1',1,1,'u1',${NOW},'{}',${NOW});
+        INSERT INTO participants (id, email, normalized_email, first_name, last_name, created_at, updated_at)
+        VALUES ('p1','a@b.com','a@b.com','Ana','Lopez',${NOW},${NOW});
+        INSERT INTO event_entries (id, event_id, participant_id, form_version_id, status, submitted_at, created_at, updated_at)
+        VALUES ('old','e1','p1','v1','SUBMITTED',${NOW},${NOW},${NOW});
+      `);
+
+      db.raw.exec(readMigration('0014_public_submission.sql'));
+
+      const row = db.raw
+        .prepare("SELECT id, submission_id FROM event_entries WHERE id = 'old'")
+        .get() as { id: string; submission_id: string | null };
+      expect(row.id).toBe('old');
+      expect(row.submission_id).toBeNull();
+    } finally {
+      db.close();
+    }
+  });
+
+  it('refuses to rewrite a key once it is set', () => {
+    // An entry may be re-judged; its idempotency handle may never move.
+    const db = seeded();
+    try {
+      db.raw.exec(insertEntry('en1', 'p1', 'sub-1'));
+      expect(() =>
+        db.raw.exec("UPDATE event_entries SET submission_id = 'sub-2' WHERE id = 'en1'"),
+      ).toThrow(/submission_id cannot be changed/);
+    } finally {
+      db.close();
+    }
+  });
+
+  it('refuses to write a key onto a historical row', () => {
+    // `IS NOT` rather than `<>`: `NULL <> 'x'` is NULL, not true, so a `<>`
+    // trigger would silently permit exactly this.
+    const db = seeded();
+    try {
+      db.raw.exec(insertEntry('en1', 'p1', null));
+      expect(() =>
+        db.raw.exec("UPDATE event_entries SET submission_id = 'sub-1' WHERE id = 'en1'"),
+      ).toThrow(/submission_id cannot be changed/);
+    } finally {
+      db.close();
+    }
+  });
+
+  it('still allows an entry to be re-judged', () => {
+    const db = seeded();
+    try {
+      db.raw.exec(insertEntry('en1', 'p1', 'sub-1'));
+      expect(() =>
+        db.raw.exec(
+          `UPDATE event_entries
+             SET status = 'INELIGIBLE', overall_eligible = 0, eligibility_reason = 'AGE_REQUIREMENT_NOT_MET'
+           WHERE id = 'en1'`,
+        ),
+      ).not.toThrow();
+    } finally {
+      db.close();
     }
   });
 });
@@ -1780,11 +1925,30 @@ describe('0013 — the edges the triggers must get right', () => {
     }
   });
 
-  it('accepts DISQUALIFIED, which a later phase will write', () => {
+  it('accepts DISQUALIFIED, which phase 10 writes', () => {
+    // 0013's eligibility triggers have never objected to this status, and still
+    // do not. What CHANGED in 0015 is that a disqualified row must now also
+    // carry its administrative disposition — who removed the entry, when, why,
+    // and what status to return it to — so the insert below supplies them.
+    // Without that, 0015's coherence trigger refuses the row, which is the
+    // whole point of it: a disqualification nobody can explain or undo is not a
+    // decision.
     const db = seeded();
     try {
+      const NOW = `'2026-01-01T00:00:00.000Z'`;
       expect(() =>
-        attempt(db, `'DISQUALIFIED', 30, NULL, 0, 'DISQUALIFIED_BY_RULE'`),
+        db.raw.exec(
+          `INSERT INTO event_entries
+             (id, event_id, participant_id, form_version_id, status,
+              calculated_age, age_eligible, overall_eligible, eligibility_reason,
+              disqualified_at, disqualified_by_admin_id, disqualification_reason,
+              pre_disqualification_status,
+              submitted_at, created_at, updated_at)
+           VALUES ('x1','e1','pa1','v1','DISQUALIFIED',
+                   30, NULL, 0, 'DISQUALIFIED_BY_RULE',
+                   ${NOW}, 'u1', 'Entered twice', 'ELIGIBLE',
+                   ${NOW}, ${NOW}, ${NOW})`,
+        ),
       ).not.toThrow();
     } finally {
       db.close();
@@ -1850,6 +2014,910 @@ describe('0013 — the edges the triggers must get right', () => {
           'trg_event_entries_immutable_identity',
         ]),
       );
+    } finally {
+      db.close();
+    }
+  });
+});
+
+// ---------------------------------------------------------------------------
+describe('0016 — the draw', () => {
+  const NOW = `'2026-01-01T00:00:00.000Z'`;
+
+  /** An event at DRAW_READY, with a prize and two entries. */
+  function seeded() {
+    const db = createTestDatabase();
+    db.raw.exec(`
+      INSERT INTO admin_users (id, email, normalized_email, display_name, password_hash)
+      VALUES ('u1','a@x.com','a@x.com','A','h');
+      INSERT INTO events (id, slug, name, timezone, status, created_by, updated_by, created_at, updated_at)
+      VALUES ('e1','ev','Event','UTC','DRAW_READY','u1','u1',${NOW},${NOW});
+      INSERT INTO events (id, slug, name, timezone, status, created_by, updated_by, created_at, updated_at)
+      VALUES ('e2','ev2','Other','UTC','DRAW_READY','u1','u1',${NOW},${NOW});
+      INSERT INTO event_form_versions
+        (id, event_id, version_number, source_draft_revision, published_by, published_at, schema_snapshot, created_at)
+      VALUES ('v1','e1',1,1,'u1',${NOW},'{}',${NOW});
+      INSERT INTO event_prizes
+        (id, event_id, name, quantity, sort_order, created_by, updated_by, created_at, updated_at)
+      VALUES ('pz1','e1','Vape',2,0,'u1','u1',${NOW},${NOW});
+      INSERT INTO participants (id, email, normalized_email, first_name, last_name, created_at, updated_at)
+      VALUES ('pa1','A@x.com','a@x.com','Ana','Lopez',${NOW},${NOW});
+      INSERT INTO participants (id, email, normalized_email, first_name, last_name, created_at, updated_at)
+      VALUES ('pa2','B@x.com','b@x.com','Bea','Ruiz',${NOW},${NOW});
+      INSERT INTO event_entries
+        (id, event_id, participant_id, form_version_id, status, overall_eligible,
+         submitted_at, created_at, updated_at)
+      VALUES ('en1','e1','pa1','v1','ELIGIBLE',1,${NOW},${NOW},${NOW});
+      INSERT INTO event_entries
+        (id, event_id, participant_id, form_version_id, status, overall_eligible,
+         submitted_at, created_at, updated_at)
+      VALUES ('en2','e1','pa2','v1','ELIGIBLE',1,${NOW},${NOW},${NOW});
+    `);
+    return db;
+  }
+
+  const drawRow = (id: string, eventId: string, counts = '1, 2, 1') =>
+    `INSERT INTO draws
+       (id, event_id, completed_at, executed_by_admin_id, candidate_count,
+        prize_unit_count, assignment_count, algorithm_version, candidate_set_hash,
+        candidate_population_revision, created_at)
+     VALUES ('${id}','${eventId}',${NOW},'u1', ${counts},
+             'CRYPTO_FISHER_YATES_V1','abc',0,${NOW})`;
+
+  const assignment = (id: string, entryId: string, unitIndex = 1) =>
+    `INSERT INTO draw_assignments
+       (id, draw_id, event_id, prize_id, entry_id, prize_unit_index, draw_order,
+        prize_name_snapshot, assigned_at)
+     VALUES ('${id}','d1','e1','pz1','${entryId}',${unitIndex},0,'Vape',${NOW})`;
+
+  it('adds the population counter, defaulting to zero', () => {
+    const db = seeded();
+    try {
+      const row = db.raw
+        .prepare('SELECT participant_population_revision AS r FROM events WHERE id = ?')
+        .get('e1') as { r: number };
+      expect(row.r).toBe(0);
+    } finally {
+      db.close();
+    }
+  });
+
+  it('accepts a coherent draw', () => {
+    const db = seeded();
+    try {
+      expect(() => db.raw.exec(drawRow('d1', 'e1'))).not.toThrow();
+      expect(() => db.raw.exec(assignment('a1', 'en1'))).not.toThrow();
+    } finally {
+      db.close();
+    }
+  });
+
+  it('refuses a SECOND draw for the same event', () => {
+    const db = seeded();
+    try {
+      db.raw.exec(drawRow('d1', 'e1'));
+      // The no-reroll guarantee. Not a service check that could be forgotten:
+      // a constraint a second attempt cannot get past.
+      expect(() => db.raw.exec(drawRow('d2', 'e1'))).toThrow(/UNIQUE/i);
+    } finally {
+      db.close();
+    }
+  });
+
+  it('allows a different event its own draw', () => {
+    const db = seeded();
+    try {
+      db.raw.exec(drawRow('d1', 'e1'));
+      expect(() => db.raw.exec(drawRow('d2', 'e2'))).not.toThrow();
+    } finally {
+      db.close();
+    }
+  });
+
+  it('refuses one winner taking two prizes in one draw', () => {
+    const db = seeded();
+    try {
+      db.raw.exec(drawRow('d1', 'e1'));
+      db.raw.exec(assignment('a1', 'en1', 1));
+      // This is what stops one person walking off with everything.
+      expect(() => db.raw.exec(assignment('a2', 'en1', 2))).toThrow(/UNIQUE/i);
+    } finally {
+      db.close();
+    }
+  });
+
+  it('refuses one prize unit having two winners', () => {
+    const db = seeded();
+    try {
+      db.raw.exec(drawRow('d1', 'e1'));
+      db.raw.exec(assignment('a1', 'en1', 1));
+      // Two rows for one physical thing would mean two people were both told
+      // they had won it.
+      expect(() => db.raw.exec(assignment('a2', 'en2', 1))).toThrow(/UNIQUE/i);
+    } finally {
+      db.close();
+    }
+  });
+
+  it('allows the units of a multi-quantity prize to go to different people', () => {
+    const db = seeded();
+    try {
+      db.raw.exec(drawRow('d1', 'e1'));
+      db.raw.exec(assignment('a1', 'en1', 1));
+      expect(() => db.raw.exec(assignment('a2', 'en2', 2))).not.toThrow();
+    } finally {
+      db.close();
+    }
+  });
+
+  it('refuses counts that describe an impossible draw', () => {
+    const db = seeded();
+    try {
+      // More winners than candidates.
+      expect(() => db.raw.exec(drawRow('d1', 'e1', '1, 5, 3'))).toThrow(/CHECK/i);
+      // More winners than prize units.
+      expect(() => db.raw.exec(drawRow('d2', 'e1', '5, 1, 3'))).toThrow(/CHECK/i);
+      // A draw with nothing in it at all.
+      expect(() => db.raw.exec(drawRow('d3', 'e1', '0, 0, 0'))).toThrow(/CHECK/i);
+    } finally {
+      db.close();
+    }
+  });
+
+  it('refuses a draw with no algorithm or no candidate hash', () => {
+    const db = seeded();
+    try {
+      expect(() =>
+        db.raw.exec(
+          `INSERT INTO draws (id, event_id, completed_at, candidate_count,
+             prize_unit_count, assignment_count, algorithm_version,
+             candidate_set_hash, candidate_population_revision, created_at)
+           VALUES ('d1','e1',${NOW},1,1,1,'','abc',0,${NOW})`,
+        ),
+      ).toThrow(/CHECK/i);
+      expect(() =>
+        db.raw.exec(
+          `INSERT INTO draws (id, event_id, completed_at, candidate_count,
+             prize_unit_count, assignment_count, algorithm_version,
+             candidate_set_hash, candidate_population_revision, created_at)
+           VALUES ('d2','e1',${NOW},1,1,1,'V1','',0,${NOW})`,
+        ),
+      ).toThrow(/CHECK/i);
+    } finally {
+      db.close();
+    }
+  });
+
+  it('refuses a non-canonical timestamp', () => {
+    const db = seeded();
+    try {
+      expect(() =>
+        db.raw.exec(
+          `INSERT INTO draws (id, event_id, completed_at, candidate_count,
+             prize_unit_count, assignment_count, algorithm_version,
+             candidate_set_hash, candidate_population_revision, created_at)
+           VALUES ('d1','e1','2026-01-01 00:00:00',1,1,1,'V1','abc',0,${NOW})`,
+        ),
+      ).toThrow(/CHECK/i);
+    } finally {
+      db.close();
+    }
+  });
+
+  it('refuses a blank prize name snapshot', () => {
+    const db = seeded();
+    try {
+      db.raw.exec(drawRow('d1', 'e1'));
+      expect(() =>
+        db.raw.exec(
+          `INSERT INTO draw_assignments
+             (id, draw_id, event_id, prize_id, entry_id, prize_unit_index,
+              draw_order, prize_name_snapshot, assigned_at)
+           VALUES ('a1','d1','e1','pz1','en1',1,0,'   ',${NOW})`,
+        ),
+      ).toThrow(/CHECK/i);
+    } finally {
+      db.close();
+    }
+  });
+
+  it('refuses a unit index below 1', () => {
+    const db = seeded();
+    try {
+      db.raw.exec(drawRow('d1', 'e1'));
+      expect(() => db.raw.exec(assignment('a1', 'en1', 0))).toThrow(/CHECK/i);
+    } finally {
+      db.close();
+    }
+  });
+
+  it('refuses to delete anything a draw depends on', () => {
+    const db = seeded();
+    try {
+      db.raw.exec(drawRow('d1', 'e1'));
+      db.raw.exec(assignment('a1', 'en1'));
+
+      // A prize somebody won, the participation that won it, the draw itself
+      // and the event it belonged to are the EVIDENCE. Nothing may remove any
+      // of them as a side effect of tidying up.
+      for (const sql of [
+        `DELETE FROM event_prizes WHERE id = 'pz1'`,
+        `DELETE FROM event_entries WHERE id = 'en1'`,
+        `DELETE FROM draws WHERE id = 'd1'`,
+        `DELETE FROM events WHERE id = 'e1'`,
+      ]) {
+        expect(() => db.raw.exec(sql), sql).toThrow(/FOREIGN KEY/i);
+      }
+    } finally {
+      db.close();
+    }
+  });
+
+  it('lets an administrator be deleted without erasing the draw', () => {
+    const db = seeded();
+    try {
+      // A SECOND administrator, who runs the draw and owns nothing else. The
+      // seed's `u1` created the event and its prizes, and those columns are
+      // RESTRICT — so deleting it would fail for a reason that has nothing to
+      // do with what this test is about.
+      db.raw.exec(
+        `INSERT INTO admin_users (id, email, normalized_email, display_name, password_hash)
+         VALUES ('u2','b@x.com','b@x.com','B','h')`,
+      );
+      db.raw.exec(drawRow('d1', 'e1').replace("'u1'", "'u2'"));
+
+      // ON DELETE SET NULL, and no coherence rule requires the actor: removing
+      // an administrator must not erase the record that a draw happened. The
+      // authoritative attribution survives in `audit_logs`.
+      db.raw.exec(`DELETE FROM admin_users WHERE id = 'u2'`);
+      const row = db.raw
+        .prepare('SELECT executed_by_admin_id AS a, id FROM draws WHERE id = ?')
+        .get('d1') as { a: string | null; id: string };
+      expect(row.id).toBe('d1');
+      expect(row.a).toBeNull();
+    } finally {
+      db.close();
+    }
+  });
+
+  it('declares the indexes it claims to', () => {
+    const db = createTestDatabase();
+    try {
+      expect(indexNames(db.raw, 'draws')).toContain('ux_draws_event');
+      const assignmentIndexes = indexNames(db.raw, 'draw_assignments');
+      expect(assignmentIndexes).toContain('ux_draw_assignments_winner');
+      expect(assignmentIndexes).toContain('ux_draw_assignments_unit');
+    } finally {
+      db.close();
+    }
+  });
+
+  it('is not replayable onto a database that already has it', () => {
+    const db = createTestDatabase();
+    try {
+      expect(() => db.raw.exec(readMigration('0016_draws_and_assignments.sql'))).toThrow(
+        /duplicate column|already exists/i,
+      );
+    } finally {
+      db.close();
+    }
+  });
+
+  it('applies onto a POPULATED 0015 database without losing a row', () => {
+    // The realistic upgrade: an existing deployment with participants already
+    // administered. A migration that rebuilt a table would be the moment their
+    // history disappeared.
+    const db = createTestDatabase({ through: '0015_participant_administration.sql' });
+    try {
+      db.raw.exec(`
+        INSERT INTO admin_users (id, email, normalized_email, display_name, password_hash)
+        VALUES ('u1','a@x.com','a@x.com','A','h');
+        INSERT INTO events (id, slug, name, timezone, status, created_by, updated_by, created_at, updated_at)
+        VALUES ('e1','ev','Event','UTC','CLOSED','u1','u1',${NOW},${NOW});
+        INSERT INTO event_form_versions
+          (id, event_id, version_number, source_draft_revision, published_by, published_at, schema_snapshot, created_at)
+        VALUES ('v1','e1',1,1,'u1',${NOW},'{}',${NOW});
+        INSERT INTO participants (id, email, normalized_email, first_name, last_name, created_at, updated_at)
+        VALUES ('pa1','A@x.com','a@x.com','Ana','Lopez',${NOW},${NOW});
+        INSERT INTO event_entries
+          (id, event_id, participant_id, form_version_id, status, overall_eligible,
+           pre_disqualification_status, disqualified_at, disqualification_reason,
+           submitted_at, created_at, updated_at)
+        VALUES ('en1','e1','pa1','v1','DISQUALIFIED',1,'ELIGIBLE',${NOW},'Duplicate',${NOW},${NOW},${NOW});
+      `);
+
+      expect(() => db.raw.exec(readMigration('0016_draws_and_assignments.sql'))).not.toThrow();
+
+      const entry = db.raw
+        .prepare(
+          `SELECT status, overall_eligible AS oe, pre_disqualification_status AS pre,
+                  disqualification_reason AS reason
+             FROM event_entries WHERE id = 'en1'`,
+        )
+        .get() as Record<string, unknown>;
+      expect(entry).toMatchObject({
+        status: 'DISQUALIFIED',
+        oe: 1,
+        pre: 'ELIGIBLE',
+        reason: 'Duplicate',
+      });
+
+      const event = db.raw
+        .prepare('SELECT participant_population_revision AS r, status FROM events WHERE id = ?')
+        .get('e1') as { r: number; status: string };
+      expect(event).toEqual({ r: 0, status: 'CLOSED' });
+    } finally {
+      db.close();
+    }
+  });
+});
+
+// ---------------------------------------------------------------------------
+describe('0016 — one event, throughout', () => {
+  const NOW = `'2026-01-01T00:00:00.000Z'`;
+
+  /** Two events, each with a prize, an entry and a draw of its own. */
+  function seeded() {
+    const db = createTestDatabase();
+    db.raw.exec(`
+      INSERT INTO admin_users (id, email, normalized_email, display_name, password_hash)
+      VALUES ('u1','a@x.com','a@x.com','A','h');
+      INSERT INTO events (id, slug, name, timezone, status, created_by, updated_by, created_at, updated_at)
+      VALUES ('e1','ev1','One','UTC','DRAW_READY','u1','u1',${NOW},${NOW});
+      INSERT INTO events (id, slug, name, timezone, status, created_by, updated_by, created_at, updated_at)
+      VALUES ('e2','ev2','Two','UTC','DRAW_READY','u1','u1',${NOW},${NOW});
+      INSERT INTO event_form_versions
+        (id, event_id, version_number, source_draft_revision, published_by, published_at, schema_snapshot, created_at)
+      VALUES ('v1','e1',1,1,'u1',${NOW},'{}',${NOW});
+      INSERT INTO event_form_versions
+        (id, event_id, version_number, source_draft_revision, published_by, published_at, schema_snapshot, created_at)
+      VALUES ('v2','e2',1,1,'u1',${NOW},'{}',${NOW});
+      INSERT INTO event_prizes (id, event_id, name, quantity, sort_order, created_by, updated_by, created_at, updated_at)
+      VALUES ('pz1','e1','Vape',2,0,'u1','u1',${NOW},${NOW});
+      INSERT INTO event_prizes (id, event_id, name, quantity, sort_order, created_by, updated_by, created_at, updated_at)
+      VALUES ('pz2','e2','Grinder',2,0,'u1','u1',${NOW},${NOW});
+      INSERT INTO participants (id, email, normalized_email, first_name, last_name, created_at, updated_at)
+      VALUES ('pa1','A@x.com','a@x.com','Ana','Lopez',${NOW},${NOW});
+      INSERT INTO participants (id, email, normalized_email, first_name, last_name, created_at, updated_at)
+      VALUES ('pa2','B@x.com','b@x.com','Bea','Ruiz',${NOW},${NOW});
+      INSERT INTO event_entries (id, event_id, participant_id, form_version_id, status, overall_eligible, submitted_at, created_at, updated_at)
+      VALUES ('en1','e1','pa1','v1','ELIGIBLE',1,${NOW},${NOW},${NOW});
+      INSERT INTO event_entries (id, event_id, participant_id, form_version_id, status, overall_eligible, submitted_at, created_at, updated_at)
+      VALUES ('en2','e2','pa2','v2','ELIGIBLE',1,${NOW},${NOW},${NOW});
+      INSERT INTO draws (id, event_id, completed_at, candidate_count, prize_unit_count,
+                         assignment_count, algorithm_version, candidate_set_hash,
+                         candidate_population_revision, created_at)
+      VALUES ('d1','e1',${NOW},1,2,1,'V1','abc',0,${NOW});
+    `);
+    return db;
+  }
+
+  const assign = (drawId, eventId, prizeId, entryId) =>
+    `INSERT INTO draw_assignments
+       (id, draw_id, event_id, prize_id, entry_id, prize_unit_index, draw_order,
+        prize_name_snapshot, assigned_at)
+     VALUES ('a1','${drawId}','${eventId}','${prizeId}','${entryId}',1,0,'Vape',${NOW})`;
+
+  it('accepts an assignment whose four references agree', () => {
+    const db = seeded();
+    try {
+      expect(() => db.raw.exec(assign('d1', 'e1', 'pz1', 'en1'))).not.toThrow();
+    } finally {
+      db.close();
+    }
+  });
+
+  it('refuses a prize from another event', () => {
+    const db = seeded();
+    try {
+      // Every single reference exists. Only their AGREEMENT is wrong, which is
+      // what three separate foreign keys cannot see and a composite one can.
+      expect(() => db.raw.exec(assign('d1', 'e1', 'pz2', 'en1'))).toThrow(/FOREIGN KEY/i);
+    } finally {
+      db.close();
+    }
+  });
+
+  it('refuses an entry from another event', () => {
+    const db = seeded();
+    try {
+      expect(() => db.raw.exec(assign('d1', 'e1', 'pz1', 'en2'))).toThrow(/FOREIGN KEY/i);
+    } finally {
+      db.close();
+    }
+  });
+
+  it('refuses a draw from another event', () => {
+    const db = seeded();
+    try {
+      db.raw.exec(
+        `INSERT INTO draws (id, event_id, completed_at, candidate_count, prize_unit_count,
+                            assignment_count, algorithm_version, candidate_set_hash,
+                            candidate_population_revision, created_at)
+         VALUES ('d2','e2',${NOW},1,2,1,'V1','abc',0,${NOW})`,
+      );
+      expect(() => db.raw.exec(assign('d2', 'e1', 'pz1', 'en1'))).toThrow(/FOREIGN KEY/i);
+    } finally {
+      db.close();
+    }
+  });
+
+  it('declares the composite parent keys the foreign keys need', () => {
+    const db = createTestDatabase();
+    try {
+      expect(indexNames(db.raw, 'draws')).toContain('ux_draws_id_event');
+      expect(indexNames(db.raw, 'event_prizes')).toContain('ux_event_prizes_id_event');
+      expect(indexNames(db.raw, 'event_entries')).toContain('ux_event_entries_id_event');
+    } finally {
+      db.close();
+    }
+  });
+
+  it('adds the parent keys to a POPULATED database without losing a row', () => {
+    // The composite indexes are created on tables that already hold data, so
+    // an upgrade has to survive real rows.
+    const db = createTestDatabase({ through: '0015_participant_administration.sql' });
+    try {
+      db.raw.exec(`
+        INSERT INTO admin_users (id, email, normalized_email, display_name, password_hash)
+        VALUES ('u1','a@x.com','a@x.com','A','h');
+        INSERT INTO events (id, slug, name, timezone, status, created_by, updated_by, created_at, updated_at)
+        VALUES ('e1','ev','Event','UTC','CLOSED','u1','u1',${NOW},${NOW});
+        INSERT INTO event_form_versions
+          (id, event_id, version_number, source_draft_revision, published_by, published_at, schema_snapshot, created_at)
+        VALUES ('v1','e1',1,1,'u1',${NOW},'{}',${NOW});
+        INSERT INTO event_prizes (id, event_id, name, quantity, sort_order, created_by, updated_by, created_at, updated_at)
+        VALUES ('pz1','e1','Vape',2,0,'u1','u1',${NOW},${NOW});
+        INSERT INTO participants (id, email, normalized_email, first_name, last_name, created_at, updated_at)
+        VALUES ('pa1','A@x.com','a@x.com','Ana','Lopez',${NOW},${NOW});
+        INSERT INTO event_entries (id, event_id, participant_id, form_version_id, status, overall_eligible, submitted_at, created_at, updated_at)
+        VALUES ('en1','e1','pa1','v1','ELIGIBLE',1,${NOW},${NOW},${NOW});
+      `);
+
+      expect(() => db.raw.exec(readMigration('0016_draws_and_assignments.sql'))).not.toThrow();
+      const counts = db.raw
+        .prepare(
+          `SELECT (SELECT COUNT(*) FROM event_prizes) AS prizes,
+                  (SELECT COUNT(*) FROM event_entries) AS entries`,
+        )
+        .get();
+      expect(counts).toEqual({ prizes: 1, entries: 1 });
+    } finally {
+      db.close();
+    }
+  });
+});
+
+// ---------------------------------------------------------------------------
+describe('0017 — publishing a result', () => {
+  const NOW = `'2026-01-01T00:00:00.000Z'`;
+
+  /** Two events, each drawn, so cross-event mixing can be attempted. */
+  function seeded() {
+    const db = createTestDatabase();
+    db.raw.exec(`
+      INSERT INTO admin_users (id, email, normalized_email, display_name, password_hash)
+      VALUES ('u1','a@x.com','a@x.com','A','h');
+      INSERT INTO events (id, slug, name, timezone, status, created_by, updated_by, created_at, updated_at)
+      VALUES ('e1','ev1','One','UTC','DRAW_COMPLETED','u1','u1',${NOW},${NOW});
+      INSERT INTO events (id, slug, name, timezone, status, created_by, updated_by, created_at, updated_at)
+      VALUES ('e2','ev2','Two','UTC','DRAW_COMPLETED','u1','u1',${NOW},${NOW});
+      INSERT INTO event_form_versions
+        (id, event_id, version_number, source_draft_revision, published_by, published_at, schema_snapshot, created_at)
+      VALUES ('v1','e1',1,1,'u1',${NOW},'{}',${NOW});
+      INSERT INTO event_form_versions
+        (id, event_id, version_number, source_draft_revision, published_by, published_at, schema_snapshot, created_at)
+      VALUES ('v2','e2',1,1,'u1',${NOW},'{}',${NOW});
+      INSERT INTO event_prizes (id, event_id, name, quantity, sort_order, created_by, updated_by, created_at, updated_at)
+      VALUES ('pz1','e1','Vape',2,0,'u1','u1',${NOW},${NOW});
+      INSERT INTO event_prizes (id, event_id, name, quantity, sort_order, created_by, updated_by, created_at, updated_at)
+      VALUES ('pz2','e2','Grinder',2,0,'u1','u1',${NOW},${NOW});
+      INSERT INTO participants (id, email, normalized_email, first_name, last_name, created_at, updated_at)
+      VALUES ('pa1','A@x.com','a@x.com','Ana','Lopez',${NOW},${NOW});
+      INSERT INTO participants (id, email, normalized_email, first_name, last_name, created_at, updated_at)
+      VALUES ('pa2','B@x.com','b@x.com','Bea','Ruiz',${NOW},${NOW});
+      INSERT INTO event_entries (id, event_id, participant_id, form_version_id, status, overall_eligible, submitted_at, created_at, updated_at)
+      VALUES ('en1','e1','pa1','v1','ELIGIBLE',1,${NOW},${NOW},${NOW});
+      INSERT INTO event_entries (id, event_id, participant_id, form_version_id, status, overall_eligible, submitted_at, created_at, updated_at)
+      VALUES ('en2','e2','pa2','v2','ELIGIBLE',1,${NOW},${NOW},${NOW});
+      INSERT INTO draws (id, event_id, completed_at, candidate_count, prize_unit_count,
+                         assignment_count, algorithm_version, candidate_set_hash,
+                         candidate_population_revision, created_at)
+      VALUES ('d1','e1',${NOW},1,2,1,'V1','abc',0,${NOW});
+      INSERT INTO draws (id, event_id, completed_at, candidate_count, prize_unit_count,
+                         assignment_count, algorithm_version, candidate_set_hash,
+                         candidate_population_revision, created_at)
+      VALUES ('d2','e2',${NOW},1,2,1,'V1','abc',0,${NOW});
+      INSERT INTO draw_assignments
+        (id, draw_id, event_id, prize_id, entry_id, prize_unit_index, draw_order, prize_name_snapshot, assigned_at)
+      VALUES ('as1','d1','e1','pz1','en1',1,0,'Vape',${NOW});
+      INSERT INTO draw_assignments
+        (id, draw_id, event_id, prize_id, entry_id, prize_unit_index, draw_order, prize_name_snapshot, assigned_at)
+      VALUES ('as2','d2','e2','pz2','en2',1,0,'Grinder',${NOW});
+    `);
+    return db;
+  }
+
+  const publication = (id, eventId, drawId, winners = 1) =>
+    `INSERT INTO result_publications
+       (id, event_id, draw_id, published_at, published_by_admin_id, winner_count, created_at)
+     VALUES ('${id}','${eventId}','${drawId}',${NOW},'u1',${winners},${NOW})`;
+
+  const item = (id, publicationId, drawId, assignmentId, order = 0, name = 'Ana L.') =>
+    `INSERT INTO result_publication_items
+       (id, publication_id, draw_id, assignment_id, draw_order,
+        winner_display_name_snapshot, prize_name_snapshot, prize_unit_index, created_at)
+     VALUES ('${id}','${publicationId}','${drawId}','${assignmentId}',${order},
+             '${name}','Vape',1,${NOW})`;
+
+  it('accepts a coherent publication and its item', () => {
+    const db = seeded();
+    try {
+      expect(() => db.raw.exec(publication('p1', 'e1', 'd1'))).not.toThrow();
+      expect(() => db.raw.exec(item('i1', 'p1', 'd1', 'as1'))).not.toThrow();
+    } finally {
+      db.close();
+    }
+  });
+
+  it('refuses a SECOND publication for the same event', () => {
+    const db = seeded();
+    try {
+      db.raw.exec(publication('p1', 'e1', 'd1'));
+      expect(() => db.raw.exec(publication('p2', 'e1', 'd1'))).toThrow(/UNIQUE/i);
+    } finally {
+      db.close();
+    }
+  });
+
+  it('refuses a second publication of the same draw', () => {
+    const db = seeded();
+    try {
+      db.raw.exec(publication('p1', 'e1', 'd1'));
+      // A different event claiming the same draw: caught by the draw index and,
+      // failing that, by the composite key.
+      expect(() => db.raw.exec(publication('p2', 'e2', 'd1'))).toThrow(
+        /UNIQUE|FOREIGN KEY/i,
+      );
+    } finally {
+      db.close();
+    }
+  });
+
+  it('refuses a publication whose draw belongs to another event', () => {
+    const db = seeded();
+    try {
+      // Every reference exists. Only their agreement is wrong.
+      expect(() => db.raw.exec(publication('p1', 'e1', 'd2'))).toThrow(/FOREIGN KEY/i);
+    } finally {
+      db.close();
+    }
+  });
+
+  it('refuses an item whose assignment belongs to another draw', () => {
+    const db = seeded();
+    try {
+      db.raw.exec(publication('p1', 'e1', 'd1'));
+      expect(() => db.raw.exec(item('i1', 'p1', 'd1', 'as2'))).toThrow(/FOREIGN KEY/i);
+    } finally {
+      db.close();
+    }
+  });
+
+  it('refuses a publication with no winners', () => {
+    const db = seeded();
+    try {
+      expect(() => db.raw.exec(publication('p1', 'e1', 'd1', 0))).toThrow(/CHECK/i);
+    } finally {
+      db.close();
+    }
+  });
+
+  it('refuses a blank identifier, name or prize', () => {
+    const db = seeded();
+    try {
+      db.raw.exec(publication('p1', 'e1', 'd1'));
+      // A blank public name would be a permanent placeholder in a permanent
+      // record.
+      expect(() => db.raw.exec(item('i1', 'p1', 'd1', 'as1', 0, '   '))).toThrow(/CHECK/i);
+      expect(() =>
+        db.raw.exec(
+          `INSERT INTO result_publication_items
+             (id, publication_id, draw_id, assignment_id, draw_order,
+              winner_display_name_snapshot, prize_name_snapshot, prize_unit_index, created_at)
+           VALUES ('i2','p1','d1','as1',0,'Ana L.','  ',1,${NOW})`,
+        ),
+      ).toThrow(/CHECK/i);
+    } finally {
+      db.close();
+    }
+  });
+
+  it('refuses an impossible unit index or position', () => {
+    const db = seeded();
+    try {
+      db.raw.exec(publication('p1', 'e1', 'd1'));
+      expect(() =>
+        db.raw.exec(
+          `INSERT INTO result_publication_items
+             (id, publication_id, draw_id, assignment_id, draw_order,
+              winner_display_name_snapshot, prize_name_snapshot, prize_unit_index, created_at)
+           VALUES ('i1','p1','d1','as1',0,'Ana L.','Vape',0,${NOW})`,
+        ),
+      ).toThrow(/CHECK/i);
+      expect(() =>
+        db.raw.exec(
+          `INSERT INTO result_publication_items
+             (id, publication_id, draw_id, assignment_id, draw_order,
+              winner_display_name_snapshot, prize_name_snapshot, prize_unit_index, created_at)
+           VALUES ('i2','p1','d1','as1',-1,'Ana L.','Vape',1,${NOW})`,
+        ),
+      ).toThrow(/CHECK/i);
+    } finally {
+      db.close();
+    }
+  });
+
+  it('refuses two items for one assignment, or two in one position', () => {
+    const db = seeded();
+    try {
+      db.raw.exec(publication('p1', 'e1', 'd1'));
+      db.raw.exec(item('i1', 'p1', 'd1', 'as1', 0));
+      // The same winner announced twice.
+      expect(() => db.raw.exec(item('i2', 'p1', 'd1', 'as1', 1))).toThrow(/UNIQUE/i);
+      // Two winners claiming one position: the public order would be ambiguous.
+      expect(() => db.raw.exec(item('i3', 'p1', 'd1', 'as1', 0))).toThrow(/UNIQUE/i);
+    } finally {
+      db.close();
+    }
+  });
+
+  it('refuses a non-canonical timestamp', () => {
+    const db = seeded();
+    try {
+      expect(() =>
+        db.raw.exec(
+          `INSERT INTO result_publications
+             (id, event_id, draw_id, published_at, winner_count, created_at)
+           VALUES ('p1','e1','d1','2026-01-01 00:00:00',1,${NOW})`,
+        ),
+      ).toThrow(/CHECK/i);
+    } finally {
+      db.close();
+    }
+  });
+
+  it('refuses to delete anything a publication depends on', () => {
+    const db = seeded();
+    try {
+      db.raw.exec(publication('p1', 'e1', 'd1'));
+      db.raw.exec(item('i1', 'p1', 'd1', 'as1'));
+
+      for (const sql of [
+        `DELETE FROM result_publications WHERE id = 'p1'`,
+        `DELETE FROM draw_assignments WHERE id = 'as1'`,
+        `DELETE FROM draws WHERE id = 'd1'`,
+        `DELETE FROM events WHERE id = 'e1'`,
+      ]) {
+        expect(() => db.raw.exec(sql), sql).toThrow(/FOREIGN KEY/i);
+      }
+    } finally {
+      db.close();
+    }
+  });
+
+  it('lets an administrator be deleted without erasing the publication', () => {
+    const db = seeded();
+    try {
+      db.raw.exec(
+        `INSERT INTO admin_users (id, email, normalized_email, display_name, password_hash)
+         VALUES ('u2','b@x.com','b@x.com','B','h')`,
+      );
+      db.raw.exec(publication('p1', 'e1', 'd1').replace("'u1'", "'u2'"));
+
+      // ON DELETE SET NULL, and no rule requires the actor: removing an account
+      // must not erase the record that results were published.
+      db.raw.exec(`DELETE FROM admin_users WHERE id = 'u2'`);
+      const row = db.raw
+        .prepare('SELECT id, published_by_admin_id AS a FROM result_publications')
+        .get();
+      expect(row).toEqual({ id: 'p1', a: null });
+    } finally {
+      db.close();
+    }
+  });
+
+  it('declares the indexes and parent keys it claims to', () => {
+    const db = createTestDatabase();
+    try {
+      expect(indexNames(db.raw, 'result_publications')).toEqual(
+        expect.arrayContaining([
+          'ux_result_publications_event',
+          'ux_result_publications_draw',
+          'ux_result_publications_id_draw',
+        ]),
+      );
+      expect(indexNames(db.raw, 'result_publication_items')).toEqual(
+        expect.arrayContaining(['ux_result_items_assignment', 'ux_result_items_order']),
+      );
+      expect(indexNames(db.raw, 'draw_assignments')).toContain('ux_draw_assignments_id_draw');
+    } finally {
+      db.close();
+    }
+  });
+
+  it('is the last migration, and is not replayable', () => {
+    const files = migrationFiles();
+    expect(files.at(-1)).toBe('0017_results_and_archiving.sql');
+
+    const db = createTestDatabase();
+    try {
+      expect(() => db.raw.exec(readMigration('0017_results_and_archiving.sql'))).toThrow(
+        /already exists/i,
+      );
+    } finally {
+      db.close();
+    }
+  });
+
+  it('applies onto a POPULATED 0016 database without losing a row', () => {
+    // The realistic upgrade: a deployment that has already drawn an event.
+    const db = createTestDatabase({ through: '0016_draws_and_assignments.sql' });
+    try {
+      db.raw.exec(`
+        INSERT INTO admin_users (id, email, normalized_email, display_name, password_hash)
+        VALUES ('u1','a@x.com','a@x.com','A','h');
+        INSERT INTO events (id, slug, name, timezone, status, created_by, updated_by, created_at, updated_at)
+        VALUES ('e1','ev','Event','UTC','DRAW_COMPLETED','u1','u1',${NOW},${NOW});
+        INSERT INTO event_form_versions
+          (id, event_id, version_number, source_draft_revision, published_by, published_at, schema_snapshot, created_at)
+        VALUES ('v1','e1',1,1,'u1',${NOW},'{}',${NOW});
+        INSERT INTO event_prizes (id, event_id, name, quantity, sort_order, created_by, updated_by, created_at, updated_at)
+        VALUES ('pz1','e1','Vape',2,0,'u1','u1',${NOW},${NOW});
+        INSERT INTO participants (id, email, normalized_email, first_name, last_name, created_at, updated_at)
+        VALUES ('pa1','A@x.com','a@x.com','Ana','Lopez',${NOW},${NOW});
+        INSERT INTO event_entries
+          (id, event_id, participant_id, form_version_id, status, overall_eligible,
+           submission_id, pre_disqualification_status, submitted_at, created_at, updated_at)
+        VALUES ('en1','e1','pa1','v1','ELIGIBLE',1,'sub-1',NULL,${NOW},${NOW},${NOW});
+        INSERT INTO form_steps
+          (id, form_owner_type, form_owner_id, title, sort_order, created_at, updated_at)
+        VALUES ('st1','VERSION','v1','About you',0,${NOW},${NOW});
+        INSERT INTO form_questions
+          (id, form_owner_type, form_owner_id, step_id, key, system_field, type,
+           label, required, sort_order, created_at, updated_at)
+        VALUES ('q1','VERSION','v1','st1','email','EMAIL','EMAIL','Email',1,0,${NOW},${NOW});
+        INSERT INTO event_entry_answers
+          (id, event_entry_id, question_id, question_key, question_label_snapshot,
+           answer_type, answer_value, created_at)
+        VALUES ('an1','en1','q1','email','Email','EMAIL','ana@x.com',${NOW});
+        INSERT INTO draws (id, event_id, completed_at, candidate_count, prize_unit_count,
+                           assignment_count, algorithm_version, candidate_set_hash,
+                           candidate_population_revision, created_at)
+        VALUES ('d1','e1',${NOW},1,2,1,'V1','abc',0,${NOW});
+        INSERT INTO draw_assignments
+          (id, draw_id, event_id, prize_id, entry_id, prize_unit_index, draw_order, prize_name_snapshot, assigned_at)
+        VALUES ('as1','d1','e1','pz1','en1',1,0,'Vape',${NOW});
+      `);
+
+      expect(() => db.raw.exec(readMigration('0017_results_and_archiving.sql'))).not.toThrow();
+
+      const counts = db.raw
+        .prepare(
+          `SELECT (SELECT COUNT(*) FROM events) AS events,
+                  (SELECT COUNT(*) FROM event_prizes) AS prizes,
+                  (SELECT COUNT(*) FROM event_form_versions) AS versions,
+                  (SELECT COUNT(*) FROM participants) AS participants,
+                  (SELECT COUNT(*) FROM event_entries) AS entries,
+                  (SELECT COUNT(*) FROM event_entry_answers) AS answers,
+                  (SELECT COUNT(*) FROM draws) AS draws,
+                  (SELECT COUNT(*) FROM draw_assignments) AS assignments`,
+        )
+        .get();
+      expect(counts).toEqual({
+        events: 1,
+        prizes: 1,
+        versions: 1,
+        participants: 1,
+        entries: 1,
+        answers: 1,
+        draws: 1,
+        assignments: 1,
+      });
+
+      // The historical detail survives, not just the row counts.
+      const entry = db.raw
+        .prepare(
+          `SELECT status, overall_eligible AS oe, submission_id AS sub
+             FROM event_entries WHERE id = 'en1'`,
+        )
+        .get();
+      expect(entry).toEqual({ status: 'ELIGIBLE', oe: 1, sub: 'sub-1' });
+      const assignment = db.raw
+        .prepare("SELECT prize_name_snapshot AS name FROM draw_assignments WHERE id = 'as1'")
+        .get();
+      expect(assignment).toEqual({ name: 'Vape' });
+
+      // ...and the new table works on the upgraded database.
+      expect(() =>
+        db.raw.exec(
+          `INSERT INTO result_publications
+             (id, event_id, draw_id, published_at, winner_count, created_at)
+           VALUES ('p1','e1','d1',${NOW},1,${NOW})`,
+        ),
+      ).not.toThrow();
+    } finally {
+      db.close();
+    }
+  });
+});
+
+// ---------------------------------------------------------------------------
+describe('0017 — one winner per position', () => {
+  const NOW = `'2026-01-01T00:00:00.000Z'`;
+
+  it('refuses two DIFFERENT assignments claiming the same place in the draw', () => {
+    // The assignment index cannot catch this one: the two rows name different
+    // assignments, and only the position collides. Without its own index the
+    // public order would be ambiguous, and the order is the only thing that
+    // says which prize was drawn first.
+    const db = createTestDatabase();
+    try {
+      db.raw.exec(`
+        INSERT INTO admin_users (id, email, normalized_email, display_name, password_hash)
+        VALUES ('u1','a@x.com','a@x.com','A','h');
+        INSERT INTO events (id, slug, name, timezone, status, created_by, updated_by, created_at, updated_at)
+        VALUES ('e1','ev','Event','UTC','DRAW_COMPLETED','u1','u1',${NOW},${NOW});
+        INSERT INTO event_form_versions
+          (id, event_id, version_number, source_draft_revision, published_by, published_at, schema_snapshot, created_at)
+        VALUES ('v1','e1',1,1,'u1',${NOW},'{}',${NOW});
+        INSERT INTO event_prizes (id, event_id, name, quantity, sort_order, created_by, updated_by, created_at, updated_at)
+        VALUES ('pz1','e1','Vape',2,0,'u1','u1',${NOW},${NOW});
+        INSERT INTO participants (id, email, normalized_email, first_name, last_name, created_at, updated_at)
+        VALUES ('pa1','A@x.com','a@x.com','Ana','Lopez',${NOW},${NOW});
+        INSERT INTO participants (id, email, normalized_email, first_name, last_name, created_at, updated_at)
+        VALUES ('pa2','B@x.com','b@x.com','Bea','Ruiz',${NOW},${NOW});
+        INSERT INTO event_entries (id, event_id, participant_id, form_version_id, status, overall_eligible, submitted_at, created_at, updated_at)
+        VALUES ('en1','e1','pa1','v1','ELIGIBLE',1,${NOW},${NOW},${NOW});
+        INSERT INTO event_entries (id, event_id, participant_id, form_version_id, status, overall_eligible, submitted_at, created_at, updated_at)
+        VALUES ('en2','e1','pa2','v1','ELIGIBLE',1,${NOW},${NOW},${NOW});
+        INSERT INTO draws (id, event_id, completed_at, candidate_count, prize_unit_count,
+                           assignment_count, algorithm_version, candidate_set_hash,
+                           candidate_population_revision, created_at)
+        VALUES ('d1','e1',${NOW},2,2,2,'V1','abc',0,${NOW});
+        INSERT INTO draw_assignments
+          (id, draw_id, event_id, prize_id, entry_id, prize_unit_index, draw_order, prize_name_snapshot, assigned_at)
+        VALUES ('as1','d1','e1','pz1','en1',1,0,'Vape',${NOW});
+        INSERT INTO draw_assignments
+          (id, draw_id, event_id, prize_id, entry_id, prize_unit_index, draw_order, prize_name_snapshot, assigned_at)
+        VALUES ('as2','d1','e1','pz1','en2',2,1,'Vape',${NOW});
+        INSERT INTO result_publications
+          (id, event_id, draw_id, published_at, published_by_admin_id, winner_count, created_at)
+        VALUES ('p1','e1','d1',${NOW},'u1',2,${NOW});
+        INSERT INTO result_publication_items
+          (id, publication_id, draw_id, assignment_id, draw_order,
+           winner_display_name_snapshot, prize_name_snapshot, prize_unit_index, created_at)
+        VALUES ('i1','p1','d1','as1',0,'Ana L.','Vape',1,${NOW});
+      `);
+
+      expect(() =>
+        db.raw.exec(
+          `INSERT INTO result_publication_items
+             (id, publication_id, draw_id, assignment_id, draw_order,
+              winner_display_name_snapshot, prize_name_snapshot, prize_unit_index, created_at)
+           VALUES ('i2','p1','d1','as2',0,'Bea R.','Vape',2,${NOW})`,
+        ),
+      ).toThrow(/UNIQUE/i);
+
+      // ...and the same two rows at DIFFERENT positions are fine.
+      expect(() =>
+        db.raw.exec(
+          `INSERT INTO result_publication_items
+             (id, publication_id, draw_id, assignment_id, draw_order,
+              winner_display_name_snapshot, prize_name_snapshot, prize_unit_index, created_at)
+           VALUES ('i3','p1','d1','as2',1,'Bea R.','Vape',2,${NOW})`,
+        ),
+      ).not.toThrow();
     } finally {
       db.close();
     }

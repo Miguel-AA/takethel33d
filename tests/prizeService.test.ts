@@ -775,7 +775,30 @@ describe('event integration', () => {
 // ---------------------------------------------------------------------------
 describe('DRAW_READY requires something to give away', () => {
   async function closeEvent() {
-    seedPublishedForm(event.id);
+    const versionId = seedPublishedForm(event.id);
+    // Phase 11 added a SECOND precondition to `mark-draw-ready`: somebody must
+    // be eligible to be drawn. Seeded here so this block keeps testing the one
+    // it is about — the PRIZE rule — rather than accidentally passing or
+    // failing on the participant one.
+    const now = new Date().toISOString();
+    const participantId = crypto.randomUUID();
+    const email = `winner-${participantId}@example.com`;
+    db.raw
+      .prepare(
+        `INSERT INTO participants
+           (id, email, normalized_email, first_name, last_name, created_at, updated_at)
+         VALUES (?, ?, ?, 'Ada', 'Lovelace', ?, ?)`,
+      )
+      .run(participantId, email, email, now, now);
+    db.raw
+      .prepare(
+        `INSERT INTO event_entries
+           (id, event_id, participant_id, form_version_id, status,
+            overall_eligible, submitted_at, created_at, updated_at)
+         VALUES (?, ?, ?, ?, 'ELIGIBLE', 1, ?, ?, ?)`,
+      )
+      .run(crypto.randomUUID(), event.id, participantId, versionId, now, now, now);
+
     await eventService.transition(event.id, 'open', actor());
     await eventService.transition(event.id, 'close', actor());
   }

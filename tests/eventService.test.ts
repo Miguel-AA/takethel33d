@@ -74,6 +74,38 @@ function seedActivePrize(eventId: string, quantity = 1): void {
 }
 
 /**
+ * Gives an event one participant who could actually win something.
+ *
+ * Since phase 11, `mark-draw-ready` requires it: DRAW_READY is a one-way door,
+ * and declaring an event ready to draw when nothing could be drawn moves it
+ * into a state whose only exit is a draw guaranteed to refuse. The same pattern
+ * `seedActivePrize` follows for the prize precondition phase 4 added.
+ *
+ * `status = 'ELIGIBLE'` AND `overall_eligible = 1` — exactly the certified draw
+ * predicate, not one of the two.
+ */
+function seedDrawEligibleEntry(eventId: string, versionId: string): void {
+  const now = new Date().toISOString();
+  const participantId = crypto.randomUUID();
+  const email = `winner-${participantId}@example.com`;
+  db.raw
+    .prepare(
+      `INSERT INTO participants
+         (id, email, normalized_email, first_name, last_name, created_at, updated_at)
+       VALUES (?, ?, ?, 'Ada', 'Lovelace', ?, ?)`,
+    )
+    .run(participantId, email, email, now, now);
+  db.raw
+    .prepare(
+      `INSERT INTO event_entries
+         (id, event_id, participant_id, form_version_id, status,
+          overall_eligible, submitted_at, created_at, updated_at)
+       VALUES (?, ?, ?, ?, 'ELIGIBLE', 1, ?, ?, ?)`,
+    )
+    .run(crypto.randomUUID(), eventId, participantId, versionId, now, now, now);
+}
+
+/**
  * Gives an event a published form version.
  *
  * Since phase 6, `publish` and `open` require one: announcing an event means
@@ -479,9 +511,10 @@ describe('transitions', () => {
 
   it('walks the full happy path', async () => {
     const event = await createDraft(futureWindow());
-    // A draw needs a prize; see seedActivePrize.
+    // A draw needs a prize and somebody to give it to; see seedActivePrize and
+    // seedDrawEligibleEntry.
     seedActivePrize(event.id);
-    seedPublishedForm(event.id);
+    seedDrawEligibleEntry(event.id, seedPublishedForm(event.id));
     const scheduled = await service.transition(event.id, 'publish', actor());
     expect(scheduled.ok && scheduled.value.status).toBe('SCHEDULED');
 
@@ -886,5 +919,101 @@ describe('concurrency', () => {
       .prepare("SELECT COUNT(*) AS n FROM events WHERE slug = 'shared-slug'")
       .get() as { n: number };
     expect(count.n).toBe(1);
+  });
+});
+
+// ---------------------------------------------------------------------------
+describe('DRAW_READY requires somebody to draw', () => {
+  // Phase 11 added a SECOND precondition beside the prize rule, and it exists
+  // because DRAW_READY is a ONE-WAY DOOR: no action returns an event to CLOSED.
+  // Declaring an event ready to draw when nothing could be drawn moves it into
+  // a state whose only exit is a draw guaranteed to refuse.
+  async function closedEvent(): Promise<string> {
+    const event = await createDraft(futureWindow());
+    seedActivePrize(event.id);
+    seedPublishedForm(event.id);
+    await service.transition(event.id, 'open', actor());
+    await service.transition(event.id, 'close', actor());
+    return event.id;
+  }
+
+  it('refuses the transition when nobody is eligible', async () => {
+    const id = await closedEvent();
+
+    const result = await service.transition(id, 'mark-draw-ready', actor());
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.failure.code).toBe('EVENT_NOT_READY');
+      if (result.failure.code === 'EVENT_NOT_READY') {
+        expect(result.failure.fields).toContain('ELIGIBLE_PARTICIPANT_REQUIRED');
+      }
+    }
+
+    // And the event did not move.
+    expect((await service.findById(id))?.status).toBe('CLOSED');
+  });
+
+  it('refuses it when the only entries were never judged eligible', async () => {
+    const id = await closedEvent();
+    const versionId = seedPublishedForm(id);
+    const now = new Date().toISOString();
+    const participantId = crypto.randomUUID();
+    const email = `ineligible-${participantId}@example.com`;
+    db.raw
+      .prepare(
+        `INSERT INTO participants
+           (id, email, normalized_email, first_name, last_name, created_at, updated_at)
+         VALUES (?, ?, ?, 'Ada', 'Lovelace', ?, ?)`,
+      )
+      .run(participantId, email, email, now, now);
+    db.raw
+      .prepare(
+        `INSERT INTO event_entries
+           (id, event_id, participant_id, form_version_id, status, overall_eligible,
+            eligibility_reason, submitted_at, created_at, updated_at)
+         VALUES (?, ?, ?, ?, 'INELIGIBLE', 0, 'AGE_REQUIREMENT_NOT_MET', ?, ?, ?)`,
+      )
+      .run(crypto.randomUUID(), id, participantId, versionId, now, now, now);
+
+    const result = await service.transition(id, 'mark-draw-ready', actor());
+    expect(result.ok).toBe(false);
+  });
+
+  it('allows it with one eligible participant', async () => {
+    const id = await closedEvent();
+    seedDrawEligibleEntry(id, seedPublishedForm(id));
+
+    const result = await service.transition(id, 'mark-draw-ready', actor());
+    expect(result.ok).toBe(true);
+    if (result.ok) expect(result.value.status).toBe('DRAW_READY');
+  });
+
+  it('is reported as a blocked action so the UI hides the button', async () => {
+    const id = await closedEvent();
+    const event = await service.findById(id);
+
+    const { available, blocked } = service.describeActions(event!, {
+      activePrizeUnits: 1,
+      drawEligibleCount: 0,
+      publishedFormValid: true,
+    });
+
+    expect(available).not.toContain('mark-draw-ready');
+    expect(
+      blocked.find((entry) => entry.action === 'mark-draw-ready')?.missingFields,
+    ).toContain('ELIGIBLE_PARTICIPANT_REQUIRED');
+  });
+
+  it('is not evaluated when the caller does not supply the count', async () => {
+    // Callers that only care about the event's own fields must not have the
+    // rule applied on their behalf from a number they never resolved.
+    const id = await closedEvent();
+    const event = await service.findById(id);
+
+    const { available } = service.describeActions(event!, {
+      activePrizeUnits: 1,
+      publishedFormValid: true,
+    });
+    expect(available).toContain('mark-draw-ready');
   });
 });

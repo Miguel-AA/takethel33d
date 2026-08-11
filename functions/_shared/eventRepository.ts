@@ -420,6 +420,227 @@ export class EventRepository {
       .bind(id, ...bindings);
   }
 
+  /**
+   * Statement that takes a batch down unless the event still permits its
+   * participating population to be changed AT THE MOMENT THE BATCH RUNS.
+   *
+   * Checking the status in the service is necessary but not sufficient:
+   * between that read and the commit, an operator can mark the event
+   * DRAW_COMPLETED, and a disqualification landing after a draw has consumed
+   * the population leaves a recorded outcome its own data no longer explains.
+   * Measured before this existed: the event moved to DRAW_COMPLETED mid-batch
+   * and the mutation committed anyway, revision bumped and audit row written.
+   *
+   * Same technique as `abortUnlessAcceptingEntriesStatement`, for the same
+   * reason: writing NULL into a NOT NULL column is a guaranteed, transactional
+   * failure, so a mutation that loses this race writes nothing at all rather
+   * than landing in an event that has moved on.
+   *
+   * It modifies NOTHING while the event is still administrable — the WHERE
+   * clause matches only the cases that must abort.
+   *
+   * The permitted set is passed in rather than hardcoded, so this statement and
+   * `shared/participantAdministration.ts` cannot drift into two different
+   * answers about the same question.
+   */
+  abortUnlessParticipantsAdministrableStatement(
+    id: string,
+    allowedStatuses: readonly EventStatus[],
+  ): D1PreparedStatement {
+    const placeholders = allowedStatuses.map(() => '?').join(', ');
+    return this.db
+      .prepare(
+        `UPDATE events SET status = NULL
+          WHERE id = ? AND status NOT IN (${placeholders})`,
+      )
+      .bind(id, ...allowedStatuses);
+  }
+
+  /**
+   * Statement that takes a draw down unless EVERYTHING it was computed from is
+   * still true AT THE MOMENT THE BATCH RUNS.
+   *
+   * A draw is the one irreversible act in the system, so the read-then-write
+   * window matters more here than anywhere else. Three things must not have
+   * moved between resolving the candidates and committing the winners:
+   *
+   *   * THE STATE. An event that reached DRAW_COMPLETED in between has already
+   *     had its draw; a second one landing afterwards would mean two results
+   *     for one event, with the unique index deciding which survives by
+   *     accident of ordering rather than by rule.
+   *
+   *   * THE POPULATION. Phase 10 deliberately permits disqualification while
+   *     DRAW_READY — discovering a cheat in the hour before a draw is exactly
+   *     when an operator needs to act — so somebody can leave or re-enter the
+   *     candidate set after it was read. Committing winners chosen from a set
+   *     that no longer exists is the failure this counter exists to prevent.
+   *
+   *   * THE PRIZES. Redundant today: `PRIZE_CAPABILITIES_BY_EVENT_STATUS` gives
+   *     DRAW_READY an EMPTY capability list, so no prize mutation can happen in
+   *     the state a draw runs from, and a regression test holds that. It is
+   *     checked anyway because the cost is one correlated subquery and the
+   *     alternative is a draw that awards a prize somebody withdrew.
+   *
+   * Same technique as the other guards — writing NULL into a NOT NULL column is
+   * a guaranteed, transactional failure — so a draw that loses any of these
+   * races writes NOTHING: no draw row, no assignment, no audit entry, no
+   * transition. It modifies nothing when all three still hold.
+   *
+   * The caller distinguishes WHICH one fired by re-reading afterwards; the
+   * database can only tell it that something did.
+   */
+  abortUnlessDrawableStatement(
+    id: string,
+    expected: {
+      status: EventStatus;
+      populationRevision: number;
+      activePrizeUnits: number;
+    },
+  ): D1PreparedStatement {
+    return this.db
+      .prepare(
+        `UPDATE events SET status = NULL
+          WHERE id = ?
+            AND (status <> ?
+                 OR participant_population_revision <> ?
+                 OR (SELECT COALESCE(SUM(quantity), 0) FROM event_prizes
+                      WHERE event_id = ? AND status = 'ACTIVE') <> ?)`,
+      )
+      .bind(
+        id,
+        expected.status,
+        expected.populationRevision,
+        id,
+        expected.activePrizeUnits,
+      );
+  }
+
+  /**
+   * Statement that takes the `mark-draw-ready` transition down unless the event
+   * STILL has something to give away and somebody to give it to, at the moment
+   * the batch runs.
+   *
+   * Checking the two counts in the service is necessary and not sufficient.
+   * Participants may be administered while an event is CLOSED — phase 10 allows
+   * exactly that — so the last eligible entry can be disqualified between the
+   * count and the commit. Measured before this existed: the event reached
+   * DRAW_READY with zero candidates, and DRAW_READY IS A ONE-WAY DOOR. No action
+   * returns an event to CLOSED, so the only exit is a draw that is guaranteed
+   * to refuse, and the event is stuck.
+   *
+   * The prize half is redundant today — `PRIZE_CAPABILITIES_BY_EVENT_STATUS`
+   * gives CLOSED an empty capability list, so prizes are already frozen — and
+   * is checked anyway because the cost is one correlated subquery and the
+   * failure it prevents is an event that can never be drawn.
+   *
+   * Same technique as the other guards: writing NULL into a NOT NULL column is
+   * a guaranteed, transactional failure, so a transition that loses this race
+   * writes nothing at all. It modifies NOTHING while both counts hold.
+   */
+  abortUnlessDrawableConfigurationStatement(id: string): D1PreparedStatement {
+    return this.db
+      .prepare(
+        `UPDATE events SET status = NULL
+          WHERE id = ?
+            AND ((SELECT COUNT(*) FROM event_entries
+                   WHERE event_id = ?
+                     AND status = 'ELIGIBLE'
+                     AND overall_eligible = 1) < 1
+                 OR (SELECT COALESCE(SUM(quantity), 0) FROM event_prizes
+                      WHERE event_id = ? AND status = 'ACTIVE') < 1)`,
+      )
+      .bind(id, id, id);
+  }
+
+  /**
+   * Statement that moves an event to DRAW_COMPLETED.
+   *
+   * SEPARATE from `transitionStatement`, and guarded by STATUS rather than by
+   * revision, because it runs inside the draw's batch where the two behave very
+   * differently. A revision guard would match zero rows if anything at all
+   * bumped the event between resolving the candidates and committing — an
+   * editorial edit is permitted in DRAW_READY and does exactly that — and a
+   * zero-row UPDATE is not an error, so the draw would commit its winners while
+   * the event stayed DRAW_READY and looked ready to draw again.
+   *
+   * The status guard cannot fail that way: `abortUnlessDrawableStatement` has
+   * already asserted DRAW_READY earlier in the SAME transaction, and nothing
+   * outside it can intervene. `abortUnlessStatusStatement` follows, so even a
+   * zero-row match takes the batch down rather than passing silently.
+   *
+   * There is no `drawCompletedAt` column, and none is needed: `draws.completed_at`
+   * is the moment, recorded on the row that IS the draw.
+   */
+  completeDrawStatement(id: string, at: string, actorId: string): D1PreparedStatement {
+    return this.db
+      .prepare(
+        `UPDATE events
+            SET status = 'DRAW_COMPLETED',
+                updated_by = ?,
+                updated_at = ?,
+                revision = revision + 1
+          WHERE id = ? AND status = 'DRAW_READY'`,
+      )
+      .bind(actorId, at, id);
+  }
+
+  /**
+   * Statement that takes the batch down unless the event now holds EXACTLY this
+   * status.
+   *
+   * The counterpart to the abort guards that run BEFORE a mutation: this one
+   * runs after, and turns a silent no-op into a transactional failure. A guarded
+   * UPDATE matching zero rows is ordinarily the concurrency guard working
+   * correctly, but in a batch that also inserts the record of an irreversible
+   * act, "the transition did nothing and everything else committed" is the one
+   * outcome that must be impossible.
+   */
+  abortUnlessStatusStatement(id: string, status: EventStatus): D1PreparedStatement {
+    return this.db
+      .prepare('UPDATE events SET status = NULL WHERE id = ? AND status <> ?')
+      .bind(id, status);
+  }
+
+  /**
+   * Statement that advances the population counter, but ONLY if the statement
+   * before it in the batch actually changed something.
+   *
+   * `changes()` refers to the most recently completed modification, which — in
+   * the administrative batches this belongs to — is the conditional audit
+   * insert, itself written only when the guarded mutation matched a row. So the
+   * counter advances exactly when a participant genuinely entered or left the
+   * draw-eligible set, and a revision conflict that changed nothing leaves it
+   * where it was. The same technique `AuditRepository.appendStatementIfChanged`
+   * uses, for the same reason.
+   *
+   * IT IS NOT BUMPED FOR EVERY PARTICIPANT ACTIVITY. A change that cannot
+   * affect who could win must not invalidate a draw in flight — the caller
+   * decides whether the set moved and includes this statement only then.
+   * Counting every edit would turn the guard into a source of spurious
+   * failures, and an operator who is refused often enough learns to retry
+   * without reading.
+   */
+  bumpPopulationRevisionStatement(id: string): D1PreparedStatement {
+    return this.db
+      .prepare(
+        `UPDATE events
+            SET participant_population_revision = participant_population_revision + 1
+          WHERE id = ? AND changes() > 0`,
+      )
+      .bind(id);
+  }
+
+  /** The counter as it stands, for a draw to capture alongside its candidates. */
+  async populationRevision(id: string): Promise<number> {
+    const row = await this.db
+      .prepare('SELECT participant_population_revision AS revision FROM events WHERE id = ?')
+      .bind(id)
+      .first<{ revision: number }>();
+    // Absent for a database that has not yet run 0016. Zero is the same value
+    // the column defaults to, so a guard built on it still compares equal.
+    return Number(row?.revision ?? 0);
+  }
+
   /** Statement that physically removes a draft, guarded by revision and status. */
   deleteStatement(id: string, expectedRevision: number): D1PreparedStatement {
     return this.db
@@ -445,9 +666,16 @@ export class EventRepository {
    * a real person took part, and it must be impossible to erase as a side
    * effect of tidying up an event.
    *
+   * A DRAW counts for the strongest reason of any of them: it is the record
+   * that somebody won something. It is listed explicitly even though a draw
+   * cannot exist without the entries that fed it, because a check that depended
+   * on that reasoning would quietly stop protecting the draw the day the
+   * reasoning changed.
+   *
    * The database enforces all of them (`event_prizes.event_id`,
-   * `event_form_drafts.event_id`, `event_form_versions.event_id` and
-   * `event_entries.event_id` are RESTRICT); this check exists so the API can
+   * `event_form_drafts.event_id`, `event_form_versions.event_id`,
+   * `event_entries.event_id`, `draws.event_id` and
+   * `draw_assignments.event_id` are RESTRICT); this check exists so the API can
    * answer with a typed refusal instead of letting a foreign-key error surface
    * as a 500.
    */
@@ -462,9 +690,13 @@ export class EventRepository {
            SELECT 1 FROM event_form_versions WHERE event_id = ?
          ) OR EXISTS (
            SELECT 1 FROM event_entries WHERE event_id = ?
+         ) OR EXISTS (
+           SELECT 1 FROM draws WHERE event_id = ?
+         ) OR EXISTS (
+           SELECT 1 FROM draw_assignments WHERE event_id = ?
          )`,
       )
-      .bind(eventId, eventId, eventId, eventId)
+      .bind(eventId, eventId, eventId, eventId, eventId, eventId)
       .first<{ present: number }>();
     return row !== null;
   }

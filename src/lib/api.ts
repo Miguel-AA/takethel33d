@@ -49,7 +49,33 @@
   RaffleDrawResponse,
   RegisterRequest,
   RegisterResponse,
+  PublicEventResponse,
+  PublicEntryResponse,
+  PublicSubmissionInput,
+  AdminParticipantListResponse,
+  AdminParticipantSummaryResponse,
+  AdminParticipantDetailResponse,
+  ParticipantMutationResponse,
+  DisqualifyEntryInput,
+  ReinstateEntryInput,
+  DrawResponse,
+  DrawStatusResponse,
+  AdminEventResults,
+  PublishResultsResponse,
+  PublicEventResultsDTO,
+  ParticipantEligibilityFilter,
+  ParticipantStatusFilter,
 } from '@shared/types';
+
+/** Filters accepted by the administrative participants listing. All optional. */
+export interface AdminParticipantQueryParams {
+  page?: number;
+  pageSize?: number;
+  search?: string;
+  eligibility?: ParticipantEligibilityFilter;
+  status?: ParticipantStatusFilter;
+  formVersionId?: string;
+}
 
 /** Filters accepted by the prize listing. All optional. */
 export interface PrizeQueryParams {
@@ -192,6 +218,178 @@ async function request<T>(
 }
 
 export const api = {
+  // -------------------------------------------------------------------------
+  // Public flow (phase 9)
+  //
+  // Ordinary methods on the same client rather than a second one. The property
+  // that matters — a public response must not change because the browser holds
+  // an administrator's cookie — is enforced on the SERVER, where
+  // `/api/public-events/*` is outside `PROTECTED_ROUTES` and no handler reads
+  // `ctx.data.admin`. A separate client would duplicate error handling and the
+  // mock switch without adding that guarantee.
+  //
+  // `credentials: 'same-origin'` therefore still applies and is harmless: the
+  // cookie is sent and ignored.
+  // -------------------------------------------------------------------------
+
+  /** The public event page. Never send an admin header; there is none to send. */
+  getPublicEvent(slug: string): Promise<PublicEventResponse> {
+    if (USE_MOCK) return mock().then((m) => m.getPublicEvent(slug));
+    return request<PublicEventResponse>(
+      'GET',
+      `/api/public-events/${encodeURIComponent(slug)}`,
+    );
+  },
+
+  submitPublicEntry(
+    slug: string,
+    body: PublicSubmissionInput,
+  ): Promise<PublicEntryResponse> {
+    if (USE_MOCK) return mock().then((m) => m.submitPublicEntry(slug, body));
+    return request<PublicEntryResponse>(
+      'POST',
+      `/api/public-events/${encodeURIComponent(slug)}/entries`,
+      { body },
+    );
+  },
+
+  // -------------------------------------------------------------------------
+  // Participant administration (phase 10)
+  // -------------------------------------------------------------------------
+
+  listAdminParticipants(
+    eventId: string,
+    params: AdminParticipantQueryParams = {},
+  ): Promise<AdminParticipantListResponse> {
+    if (USE_MOCK) return mock().then((m) => m.listAdminParticipants(eventId, params));
+    const q = new URLSearchParams();
+    if (params.page) q.set('page', String(params.page));
+    if (params.pageSize) q.set('pageSize', String(params.pageSize));
+    if (params.search) q.set('q', params.search);
+    if (params.eligibility && params.eligibility !== 'ALL') {
+      q.set('eligibility', params.eligibility);
+    }
+    if (params.status && params.status !== 'ALL') q.set('status', params.status);
+    if (params.formVersionId) q.set('formVersionId', params.formVersionId);
+    const qs = q.toString();
+    return request<AdminParticipantListResponse>(
+      'GET',
+      `/api/events/${encodeURIComponent(eventId)}/participants${qs ? `?${qs}` : ''}`,
+    );
+  },
+
+  getAdminParticipantSummary(eventId: string): Promise<AdminParticipantSummaryResponse> {
+    if (USE_MOCK) return mock().then((m) => m.getAdminParticipantSummary(eventId));
+    return request<AdminParticipantSummaryResponse>(
+      'GET',
+      `/api/events/${encodeURIComponent(eventId)}/participants/summary`,
+    );
+  },
+
+  getAdminParticipant(
+    eventId: string,
+    entryId: string,
+  ): Promise<AdminParticipantDetailResponse> {
+    if (USE_MOCK) return mock().then((m) => m.getAdminParticipant(eventId, entryId));
+    return request<AdminParticipantDetailResponse>(
+      'GET',
+      `/api/events/${encodeURIComponent(eventId)}/participants/${encodeURIComponent(entryId)}`,
+    );
+  },
+
+  disqualifyParticipant(
+    eventId: string,
+    entryId: string,
+    body: DisqualifyEntryInput,
+  ): Promise<ParticipantMutationResponse> {
+    if (USE_MOCK) return mock().then((m) => m.disqualifyParticipant(eventId, entryId, body));
+    return request<ParticipantMutationResponse>(
+      'POST',
+      `/api/events/${encodeURIComponent(eventId)}/participants/${encodeURIComponent(entryId)}/disqualify`,
+      { body },
+    );
+  },
+
+  reinstateParticipant(
+    eventId: string,
+    entryId: string,
+    body: ReinstateEntryInput,
+  ): Promise<ParticipantMutationResponse> {
+    if (USE_MOCK) return mock().then((m) => m.reinstateParticipant(eventId, entryId, body));
+    return request<ParticipantMutationResponse>(
+      'POST',
+      `/api/events/${encodeURIComponent(eventId)}/participants/${encodeURIComponent(entryId)}/reinstate`,
+      { body },
+    );
+  },
+
+  // -------------------------------------------------------------------------
+  // The draw (phase 11)
+  // -------------------------------------------------------------------------
+
+  getDraw(eventId: string): Promise<DrawStatusResponse> {
+    if (USE_MOCK) return mock().then((m) => m.getDraw(eventId));
+    return request<DrawStatusResponse>(
+      'GET',
+      `/api/events/${encodeURIComponent(eventId)}/draw`,
+    );
+  },
+
+  /**
+   * Runs the draw.
+   *
+   * NO BODY, and that is the contract rather than an omission. The candidates,
+   * the prizes, the winners and the moment are all resolved server-side; there
+   * is nothing here for a caller to influence, and `runDrawSchema` refuses
+   * anything that tries.
+   */
+  runDraw(eventId: string): Promise<DrawResponse> {
+    if (USE_MOCK) return mock().then((m) => m.runDraw(eventId));
+    return request<DrawResponse>(
+      'POST',
+      `/api/events/${encodeURIComponent(eventId)}/draw`,
+      { body: {} },
+    );
+  },
+
+  // -------------------------------------------------------------------------
+  // Results, publication and archiving (phase 12)
+  // -------------------------------------------------------------------------
+
+  getEventResults(eventId: string): Promise<AdminEventResults> {
+    if (USE_MOCK) return mock().then((m) => m.getEventResults(eventId));
+    return request<AdminEventResults>(
+      'GET',
+      `/api/events/${encodeURIComponent(eventId)}/results`,
+    );
+  },
+
+  /**
+   * Publishes the results.
+   *
+   * NO BODY, and that is the contract rather than an omission. The winners come
+   * from the draw, their public names from `formatPublicWinnerName`, the prize
+   * names from the snapshots taken when they were won. `publishResultsSchema`
+   * refuses anything that tries to say otherwise.
+   */
+  publishResults(eventId: string): Promise<PublishResultsResponse> {
+    if (USE_MOCK) return mock().then((m) => m.publishResults(eventId));
+    return request<PublishResultsResponse>(
+      'POST',
+      `/api/events/${encodeURIComponent(eventId)}/results/publish`,
+      { body: {} },
+    );
+  },
+
+  /** The published winners. Unauthenticated, and addressed by SLUG. */
+  getPublicEventResults(slug: string): Promise<PublicEventResultsDTO> {
+    if (USE_MOCK) return mock().then((m) => m.getPublicEventResults(slug));
+    return request<PublicEventResultsDTO>(
+      'GET',
+      `/api/public-events/${encodeURIComponent(slug)}/results`,
+    );
+  },
+
   register(body: RegisterRequest): Promise<RegisterResponse> {
     if (USE_MOCK) return mock().then((m) => m.register(body));
     return request<RegisterResponse>('POST', '/api/register', { body });

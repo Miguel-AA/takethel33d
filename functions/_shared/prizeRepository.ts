@@ -202,6 +202,26 @@ export class PrizeRepository {
     return (rows.results ?? []).map(rowToEventPrize);
   }
 
+  /**
+   * The prizes actually on offer, in display order.
+   *
+   * ACTIVE only — narrower than `listLiveByEvent`, which also returns INACTIVE.
+   * That distinction is the whole point: INACTIVE is an operator parking a
+   * prize they are still deciding about, and the administrative list must show
+   * it while the public page must not advertise it.
+   */
+  async listActiveByEvent(eventId: string): Promise<EventPrize[]> {
+    const rows = await this.db
+      .prepare(
+        `SELECT ${PRIZE_COLUMNS} FROM event_prizes
+         WHERE event_id = ? AND status = 'ACTIVE'
+         ORDER BY sort_order ASC, id ASC`,
+      )
+      .bind(eventId)
+      .all<EventPrizeRow>();
+    return (rows.results ?? []).map(rowToEventPrize);
+  }
+
   /** Total prizes on an event, archived included (the per-event limit). */
   async countByEvent(eventId: string): Promise<number> {
     const row = await this.db
@@ -268,13 +288,21 @@ export class PrizeRepository {
   /**
    * Whether anything downstream depends on this prize.
    *
-   * `draw_assignments` does not exist until a later phase, so the honest answer
-   * for the CURRENT schema is `false`. This is the explicit seam where that
-   * query will go — it does not pretend to check a table that is not there.
+   * THE SEAM PHASE 4 LEFT, NOW FILLED. Until `draw_assignments` existed the
+   * honest answer was `false`, and this method returned it without pretending to
+   * check a table that was not there. The table exists now, so it asks.
+   *
+   * A prize somebody won cannot be deleted, ever. `draw_assignments.prize_id` is
+   * RESTRICT, so the database refuses it too; this exists so the API can answer
+   * with a typed refusal instead of letting a foreign-key error surface as a
+   * 500 — and so the UI can hide a button the server would reject.
    */
-  async hasAssignments(_prizeId: string): Promise<boolean> {
-    void _prizeId;
-    return false;
+  async hasAssignments(prizeId: string): Promise<boolean> {
+    const row = await this.db
+      .prepare('SELECT 1 AS present FROM draw_assignments WHERE prize_id = ? LIMIT 1')
+      .bind(prizeId)
+      .first<{ present: number }>();
+    return row !== null;
   }
 
   insertStatement(values: PrizeInsertValues): D1PreparedStatement {

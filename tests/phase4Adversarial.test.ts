@@ -518,18 +518,23 @@ describe('typed failures carry their detail to the client', () => {
 // ---------------------------------------------------------------------------
 // The assignments seam
 // ---------------------------------------------------------------------------
-describe('hasAssignments is an honest seam, not a pretend check', () => {
-  it('answers false without touching a table that does not exist yet', async () => {
+// This block originally asserted the OPPOSITE: that `hasAssignments` returned
+// false while `draw_assignments` genuinely did not exist, so the method could
+// not be quietly relying on a table that was not there. Phase 11 created the
+// table and filled the seam, so the assertion that certified the placeholder is
+// now the assertion that certifies the real query.
+describe('hasAssignments queries the table the seam was left for', () => {
+  it('answers false for a prize nobody has won', async () => {
     const prize = await addPrize('A');
     const repo = new PrizeRepository(db.d1);
 
     expect(await repo.hasAssignments(prize.id)).toBe(false);
 
-    // The table it will one day query is genuinely absent: the method cannot
-    // be quietly relying on it. Its semantics change in the draw phase.
+    // The table it queries is genuinely present: a `false` here is an answer,
+    // not a placeholder.
     const tables = db.raw
       .prepare("SELECT name FROM sqlite_master WHERE type = 'table'")
       .all() as Array<{ name: string }>;
-    expect(tables.map((row) => row.name)).not.toContain('draw_assignments');
+    expect(tables.map((row) => row.name)).toContain('draw_assignments');
   });
 });
