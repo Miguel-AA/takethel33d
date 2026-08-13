@@ -65,6 +65,27 @@ export function Header() {
           </nav>
         )}
 
+        {/* The administrative sections, reachable from every admin page rather
+            than only from the dashboard. Rendered ONLY when there is a session:
+            a visitor who is not signed in gets no map of the admin surface.
+            `end` keeps Dashboard from highlighting on every /manager/* route. */}
+        {admin && (
+          <nav
+            className="hidden items-center gap-6 md:flex"
+            aria-label={t('nav.admin')}
+          >
+            <NavLink to="/manager" end className={navLinkClass}>
+              {t('nav.dashboard')}
+            </NavLink>
+            <NavLink to="/manager/events" className={navLinkClass}>
+              {t('events.nav')}
+            </NavLink>
+            <NavLink to="/manager/audit" className={navLinkClass}>
+              {t('audit.nav')}
+            </NavLink>
+          </nav>
+        )}
+
         <div className="flex shrink-0 items-center gap-2 sm:gap-3">
           <LanguageToggle />
           {admin ? (

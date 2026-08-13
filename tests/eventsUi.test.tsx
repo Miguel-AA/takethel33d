@@ -211,14 +211,35 @@ describe('event list', () => {
   });
 
   it('renders empty and error states', async () => {
+    // An empty list means two different things. With nothing filtered, the
+    // operator has no events at all and the screen offers to create one; the
+    // "nothing matches" wording is reserved for a list they narrowed
+    // themselves, where it is the accurate explanation.
     mocks.listEvents.mockResolvedValue(listResponse([]));
     const view = renderAt(<ManagerEventsPage />, '/manager/events');
-    expect(await screen.findByText(/no events match/i)).toBeInTheDocument();
+    expect(await screen.findByText(/no events yet/i)).toBeInTheDocument();
+    for (const link of screen.getAllByRole('link', { name: /create event/i })) {
+      expect(link).toHaveAttribute('href', '/manager/events/new');
+    }
+    expect(screen.queryByText(/no events match/i)).not.toBeInTheDocument();
     view.unmount();
 
     mocks.listEvents.mockRejectedValue(new ApiError(500, 'SERVER_ERROR', 'boom'));
     renderAt(<ManagerEventsPage />, '/manager/events');
     expect(await screen.findByRole('alert')).toBeInTheDocument();
+  });
+
+  it('blames the filters only when a filter is actually narrowing the list', async () => {
+    mocks.listEvents.mockResolvedValue(listResponse([]));
+    const user = userEvent.setup();
+    renderAt(<ManagerEventsPage />, '/manager/events');
+
+    await screen.findByText(/no events yet/i);
+
+    await user.selectOptions(screen.getByLabelText(/status/i), 'ARCHIVED');
+
+    expect(await screen.findByText(/no events match/i)).toBeInTheDocument();
+    expect(screen.queryByText(/no events yet/i)).not.toBeInTheDocument();
   });
 
   it('sends filters and resets to page 1', async () => {

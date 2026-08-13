@@ -50,6 +50,10 @@ export function ManagerEventsPage() {
 
   const totalPages = query.data?.totalPages ?? 1;
 
+  // "Active events, newest first" is the default view, not a filter. Anything
+  // else means the operator narrowed the list themselves.
+  const filtersActive = search !== '' || status !== '' || archived !== 'active';
+
   return (
     <div className="mx-auto max-w-7xl space-y-6 px-4 py-10 sm:px-6">
       <header className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
@@ -154,7 +158,26 @@ export function ManagerEventsPage() {
             <Spinner /> <span className="ml-2">{t('common.loading')}</span>
           </div>
         ) : query.data && query.data.items.length === 0 ? (
-          <div className="p-6 text-center text-sm text-slate-500">{t('events.empty')}</div>
+          /* Two different situations wear the same empty table, and telling an
+             operator "nothing matches these filters" when they have never
+             created an event is how a first run becomes a dead end. When no
+             filter is narrowing anything, this is a fresh installation and the
+             screen offers the action instead of an explanation. */
+          filtersActive ? (
+            <div className="p-6 text-center text-sm text-slate-500">{t('events.empty')}</div>
+          ) : (
+            <div className="p-8 text-center">
+              <h2 className="text-lg font-semibold text-slate-900">
+                {t('dashboard.events.empty.title')}
+              </h2>
+              <p className="mx-auto mt-2 max-w-xl text-sm text-slate-600">
+                {t('dashboard.events.empty.body')}
+              </p>
+              <Link to="/manager/events/new" className="btn-primary mt-6 w-fit">
+                {t('events.action.new')}
+              </Link>
+            </div>
+          )
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
