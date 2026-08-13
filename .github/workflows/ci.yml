@@ -37,16 +37,24 @@ jobs:
 
     steps:
       - name: Check out the exact commit
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Set up Node
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v5
         with:
-          # `node:sqlite` — which the migration and database suites depend on —
-          # is only available from Node 22. The version is pinned to a major
-          # rather than to `latest` so a Node release cannot turn a green
-          # pipeline red overnight.
-          node-version: '22'
+          # THE RUNTIME THE PROJECT IS CERTIFIED ON.
+          #
+          # Local certification runs on Node 24, and CI exists to verify that
+          # same thing rather than something adjacent to it. It also matters
+          # concretely: `node:sqlite` (which the migration suites depend on) and
+          # native TypeScript execution (which `scripts/*.ts` rely on) both
+          # behave differently across majors, and several dependencies declare
+          # `^20.19 || ^22.12 || >=24` — a range whose 22 branch is narrower
+          # than a bare '22' pin guarantees.
+          #
+          # Pinned to a major rather than `latest` so a Node release cannot turn
+          # a green pipeline red overnight.
+          node-version: '24'
           cache: npm
 
       # `npm ci` rather than `npm install`: it installs exactly what the
