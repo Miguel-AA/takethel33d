@@ -193,8 +193,21 @@ async function main(): Promise<void> {
   });
 
   if (args.dryRun) {
+    // The hash is REDACTED, not printed.
+    //
+    // A dry run exists so somebody can read the statement before it is
+    // executed, and the one field they must not need to read is the credential
+    // material. Printing it puts a real account's salt and derived key into a
+    // terminal scrollback, a screen share or a pasted transcript — and a dry
+    // run is exactly the command somebody runs when they intend to show
+    // somebody else what will happen.
+    //
+    // What is shown instead identifies the ALGORITHM and COST, which is what a
+    // reviewer actually wants to check.
+    const [algorithm, iterations] = passwordHash.split('$');
     process.stdout.write(
-      `\n-- dry run (${args.target}); nothing was executed --\n${sql}\n`,
+      `\n-- dry run (${args.target}); nothing was executed --\n` +
+        `${sql.replace(`'${passwordHash}'`, `'<redacted: ${algorithm}, ${iterations} iterations>'`)}\n`,
     );
     return;
   }

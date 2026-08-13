@@ -1,0 +1,78 @@
+# Continuous integration.
+#
+# The gate a commit must pass before it is eligible for deployment. It runs the
+# same commands the local certification runs, in the same order, so a green run
+# here means the exact pushed SHA was verified rather than something close to it.
+#
+# NO SECRETS AND NO DEPLOYMENT. This workflow never touches Cloudflare: it does
+# not need `PUBLIC_FORM_TOKEN_SECRET`, because the suites that exercise the
+# public form token supply their own test key, and it does not need a D1
+# binding, because the database tests replay the real migration files into an
+# in-memory SQLite through `node:sqlite`. Adding production credentials here
+# would put them in reach of every pull request, including one from a fork.
+
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+# A newer push supersedes an older one on the same ref. `main` is excluded from
+# cancellation so the history of what passed on the deployable branch stays
+# complete.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    name: Typecheck, lint, tests and builds
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Check out the exact commit
+        uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          # `node:sqlite` — which the migration and database suites depend on —
+          # is only available from Node 22. The version is pinned to a major
+          # rather than to `latest` so a Node release cannot turn a green
+          # pipeline red overnight.
+          node-version: '22'
+          cache: npm
+
+      # `npm ci` rather than `npm install`: it installs exactly what the
+      # lockfile says and fails if the lockfile and `package.json` disagree,
+      # which is the difference between a reproducible run and a hopeful one.
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Lint
+        run: npm run lint
+
+      # Includes the migration suites, which replay 0001 -> 0017 into a fresh
+      # database and assert `PRAGMA foreign_key_check` is empty. There is no
+      # separate migration step because duplicating it would only mean two
+      # places to keep in step.
+      - name: Tests
+        run: npm test
+
+      - name: Build the SPA
+        run: npm run build
+
+      # Proves the Pages Functions bundle compiles from this commit. The build
+      # writes outside the working tree so it cannot leave anything behind that
+      # a later step might mistake for source.
+      - name: Build the Functions bundle
+        run: npx wrangler pages functions build --outdir="${RUNNER_TEMP}/functions-build"
