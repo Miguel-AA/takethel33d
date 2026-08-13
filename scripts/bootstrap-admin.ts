@@ -12,12 +12,11 @@
 // script requires local access to the project and to wrangler's credentials.
 
 import { spawnSync } from 'node:child_process';
-import { createInterface } from 'node:readline';
-import { Writable } from 'node:stream';
 import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { hashPassword } from '../functions/_shared/password.ts';
+import { promptHidden, promptVisible } from './securePrompt.ts';
 import {
   buildDuplicateCheckSql,
   buildInsertSql,
@@ -52,47 +51,6 @@ or prompted for interactively. Minimum length: 12 characters.
 function fail(message: string): never {
   process.stderr.write(`\nerror: ${message}\n`);
   process.exit(1);
-}
-
-async function promptVisible(question: string): Promise<string> {
-  const rl = createInterface({ input: process.stdin, output: process.stdout });
-  try {
-    return await new Promise<string>((resolve) => rl.question(question, resolve));
-  } finally {
-    rl.close();
-  }
-}
-
-/**
- * Reads a line without echoing it. The prompt itself is written, then the
- * output stream is muted so the typed characters never reach the terminal (and
- * therefore never appear in a scrollback buffer or a screen share).
- */
-async function promptHidden(question: string): Promise<string> {
-  let muted = false;
-  const output = new Writable({
-    write(chunk: unknown, _encoding: unknown, callback: () => void) {
-      if (!muted) process.stdout.write(chunk as Uint8Array);
-      callback();
-    },
-  });
-
-  const rl = createInterface({
-    input: process.stdin,
-    output,
-    terminal: true,
-  });
-
-  try {
-    const answer = await new Promise<string>((resolve) => {
-      rl.question(question, resolve);
-      muted = true;
-    });
-    process.stdout.write('\n');
-    return answer;
-  } finally {
-    rl.close();
-  }
 }
 
 interface WranglerResult {
