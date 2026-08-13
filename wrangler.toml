@@ -24,10 +24,37 @@ pages_build_output_dir = "dist"
 RESEND_FROM = "Gifted Grads <noreply@aainsurances.com>"
 ORGANIZER_EMAIL = "info@aainsurances.com"
 
-# D1 binding. Replace `database_id` with the id printed by:
-#   npx wrangler d1 create taketheleed
+# D1 binding — PRODUCTION.
+#
+# This is the live database. It carries real participants, real draws and real
+# published results, and every guarantee the application makes about them is
+# only as good as the promise that nothing else writes here.
 [[d1_databases]]
 binding = "DB"
 database_name = "taketheleed"
 database_id = "fe66fac1-30a0-4910-8bc3-55388e9b8b63"
+migrations_dir = "migrations"
+
+# D1 binding — PREVIEW.
+#
+# WHY THIS EXISTS. Pages builds a preview deployment for every non-production
+# branch and pull request, and a Pages preview inherits the top-level bindings
+# unless an environment overrides them. Without this block, opening a pull
+# request would give that branch's code a live handle on the production
+# database — and a preview is, by definition, code nobody has reviewed yet.
+#
+# A SEPARATE DATABASE, not a read-only view of the same one: the point is that a
+# preview may write, and that its writes must land somewhere disposable. It is
+# dedicated to this project and to this purpose, and is never the production
+# database under another name.
+#
+# It starts empty. Apply the schema to it the same way as production when a
+# preview needs one:
+#   npx wrangler d1 migrations apply taketheleed-preview --remote
+[env.preview]
+
+[[env.preview.d1_databases]]
+binding = "DB"
+database_name = "taketheleed-preview"
+database_id = "38632ce1-1eab-4048-990f-2acb2f7cb8fd"
 migrations_dir = "migrations"
